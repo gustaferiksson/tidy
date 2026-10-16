@@ -81,7 +81,7 @@ Tidy works like an email inbox. Opening a thread reads it, and Done archives it.
 |---|---|---|---|
 | Open | Click, ↩, context menu Quick Look, banner Quick Look, ↑ ↓ in Quick Look | Quick Look opens and the row turns read. No undo | `PATCH /notifications/threads/{id}`, sent at once |
 | Peek | Space | Quick Look opens. The thread stays unread | none |
-| Mark as Read | ⇧I, hover, context menu | The row turns read | `PATCH /notifications/threads/{id}` |
+| Mark as Read | ⇧I, swipe, context menu | The row turns read | `PATCH /notifications/threads/{id}` |
 | Done | E, hover, swipe, context menu, Quick Look, banner | The row leaves the list | `DELETE /notifications/threads/{id}` (GitHub's "mark as done"), 4 at a time |
 | Mark All as Read | ⇧⌘I, the ⋯ menu | Every row turns read | See below |
 

@@ -89,8 +89,7 @@ struct InboxRow: View {
     }
 
     private var titleMask: some View {
-        let buttonsWidth = item.isUnread ? buttonSize * 2 + 4 : buttonSize
-        let covered = isHovered ? max(0, buttonsWidth - ageWidth - 8) : 0
+        let covered = isHovered ? max(0, buttonSize - ageWidth - 8) : 0
         return HStack(spacing: 0) {
             Color.black
             LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
@@ -114,25 +113,16 @@ struct InboxRow: View {
     }
 
     private var hoverButtons: some View {
-        HStack(spacing: 4) {
-            if item.isUnread {
-                hoverButton("Mark as Read", symbol: "envelope.open") { store.markRead([item.id]) }
-            }
-            hoverButton("Done", symbol: "checkmark") { store.markDone([item.id]) }
-        }
-        .foregroundStyle(.secondary)
-    }
-
-    private func hoverButton(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
-            Image(systemName: symbol)
+        Button { store.markDone([item.id]) } label: {
+            Image(systemName: "checkmark")
                 .frame(width: buttonSize, height: buttonSize)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
         .pointerStyle(.link)
-        .help(title)
-        .accessibilityLabel(title)
+        .foregroundStyle(.secondary)
+        .help("Done")
+        .accessibilityLabel("Done")
     }
 }
 
