@@ -8,6 +8,7 @@ final class PanelController {
     private(set) var isOpen = false
     var quickLookID: String?
     var selection: Set<String> = []
+    var hoveredID: String?
 
     @ObservationIgnored private let store: InboxStore
     @ObservationIgnored private let updater: AppUpdater

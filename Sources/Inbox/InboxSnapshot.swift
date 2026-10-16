@@ -41,19 +41,22 @@ enum InboxSnapshot {
         filtered.markDone(["6"])
         let empty = makeStore(.empty)
         await load(empty)
-        let scenarios: [(String, InboxStore, String?)] = [
-            ("populated", populated, nil),
-            ("quicklook", populated, "1"),
-            ("security", populated, "3"),
-            ("filtered", filtered, nil),
-            ("empty", empty, nil),
-            ("firstrun", makeStore(.signedOut), nil),
+        let scenarios: [(String, InboxStore, String?, String?)] = [
+            ("populated", populated, nil, nil),
+            ("hover", populated, nil, "1"),
+            ("hoverselected", populated, nil, "2"),
+            ("quicklook", populated, "1", nil),
+            ("security", populated, "3", nil),
+            ("filtered", filtered, nil, "10"),
+            ("empty", empty, nil, nil),
+            ("firstrun", makeStore(.signedOut), nil, nil),
         ]
-        for (name, store, quickLookID) in scenarios {
+        for (name, store, quickLookID, hoveredID) in scenarios {
             defaults.set(store === filtered, forKey: "doneExpanded")
             let panel = PanelController(store: store, updater: updater)
             panel.selection = quickLookID.map { [$0] } ?? ["2"]
             panel.quickLookID = quickLookID
+            panel.hoveredID = hoveredID
             for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
                 let window = PanelController.makePanelWindow(
                     content: InboxPanel().environment(store).environment(panel).environment(updater).defaultAppStorage(defaults)

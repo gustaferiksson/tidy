@@ -8,7 +8,10 @@ struct InboxRow: View {
     @Environment(InboxStore.self) private var store
     @Environment(PanelController.self) private var panel
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
-    @State private var isHovered = false
+    @State private var ageWidth: CGFloat = 0
+
+    private var isHovered: Bool { panel.hoveredID == item.id }
+    private let buttonSize: CGFloat = 24
 
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
@@ -23,20 +26,33 @@ struct InboxRow: View {
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
                 .padding(.trailing, 8)
             VStack(alignment: .leading, spacing: 4) {
-                Text(item.title)
-                    .font(.body)
-                    .fontWeight(item.isUnread ? .semibold : .regular)
-                    .foregroundStyle(item.isUnread ? .primary : .secondary)
-                    .lineLimit(2)
-                    .truncationMode(.middle)
-                Text(meta)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .redacted(reason: item.status == .loading ? .placeholder : [])
+                HStack(alignment: .firstTextBaseline, spacing: 8) {
+                    Text(item.title)
+                        .font(.body)
+                        .fontWeight(item.isUnread ? .semibold : .regular)
+                        .foregroundStyle(item.isUnread ? .primary : .secondary)
+                        .lineLimit(2)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .mask { titleMask }
+                    Text(shortAge(of: item.thread.updatedAt, now: now))
+                        .font(.subheadline)
+                        .monospacedDigit()
+                        .foregroundStyle(.secondary)
+                        .fixedSize()
+                        .onGeometryChange(for: CGFloat.self, of: \.size.width) { ageWidth = $0 }
+                        .opacity(isHovered ? 0 : 1)
+                }
+                HStack(spacing: 0) {
+                    Text(repository)
+                        .truncationMode(.middle)
+                    Text(meta)
+                        .layoutPriority(1)
+                }
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .redacted(reason: item.status == .loading ? .placeholder : [])
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.trailing, 56)
         }
         .padding(.vertical, 8)
         .padding(.trailing, 12)
@@ -47,15 +63,22 @@ struct InboxRow: View {
             panel.selection = [item.id]
             panel.quickLookID = item.id
         })
-        .overlay(alignment: .trailing) {
+        .overlay(alignment: .trailingFirstTextBaseline) {
             if isHovered {
                 hoverButtons
+                    .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
                     .padding(.trailing, 8)
                     .transition(.opacity)
             }
         }
         .animation(.easeOut(duration: 0.15), value: isHovered)
-        .onHover { isHovered = $0 }
+        .onHover { hovering in
+            if hovering {
+                panel.hoveredID = item.id
+            } else if panel.hoveredID == item.id {
+                panel.hoveredID = nil
+            }
+        }
         .swipeActions(edge: .leading) {
             if item.isUnread {
                 Button("Mark as Read", systemImage: "envelope.open") { store.markRead([item.id]) }
@@ -72,13 +95,29 @@ struct InboxRow: View {
         }
     }
 
+    private var titleMask: some View {
+        let buttonsWidth = isDone ? buttonSize : buttonSize * 2 + 4
+        let covered = isHovered ? max(0, buttonsWidth - ageWidth - 8) : 0
+        return HStack(spacing: 0) {
+            Color.black
+            LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
+                .frame(width: covered > 0 ? 16 : 0)
+            Color.clear
+                .frame(width: covered)
+        }
+    }
+
+    private var repository: String {
+        item.thread.repository.fullName + (item.thread.number.map { " #\($0)" } ?? "")
+    }
+
     private var meta: String {
-        let number = item.thread.number.map { " #\($0)" } ?? ""
         let severity = item.thread.subject.kind.isSecurity ? item.severity?.title : nil
         let state = differentiateWithoutColor ? item.state?.title : nil
-        return [item.thread.repository.fullName + number, item.thread.reason.title, severity, state, shortAge(of: item.thread.updatedAt, now: now)]
+        return [item.thread.reason.title, severity, state]
             .compactMap(\.self)
-            .joined(separator: " · ")
+            .map { " · " + $0 }
+            .joined()
     }
 
     private var hoverButtons: some View {
@@ -97,7 +136,7 @@ struct InboxRow: View {
     private func hoverButton(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
         Button(action: action) {
             Image(systemName: symbol)
-                .frame(width: 24, height: 24)
+                .frame(width: buttonSize, height: buttonSize)
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
