@@ -367,6 +367,29 @@ struct InboxStoreTests {
     #expect(store.inbox.first?.isUnread == false)
   }
 
+  @Test func moveToInboxBeforeCommitCancelsDoneButStillMarksRead() async throws {
+    server.on("PATCH", "/notifications/threads/101") { [threads] _ in
+      threads.withLock { list in
+        for index in list.indices where list[index].id == "101" { list[index].unread = false }
+      }
+      return StubResponse(status: 205)
+    }
+    let store = makeStore()
+    await store.refresh()
+    store.markDone(["101", "103"])
+    store.moveToInbox(["101"])
+    #expect(store.undoableChange?.threadIDs == ["103"])
+    await store.refresh()
+    #expect(store.done.map(\.id) == ["103"])
+    #expect(store.inbox.contains { $0.id == "101" })
+    await store.flushPending()
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(Set(requests("PATCH")) == ["/notifications/threads/101", "/notifications/threads/103"])
+    #expect(store.pending.isEmpty)
+    await store.refresh()
+    #expect(store.inbox.first { $0.id == "101" }?.isUnread == false)
+  }
+
   @Test func doneThreadResurfacesWithNewActivity() async {
     let store = makeStore()
     await store.refresh()

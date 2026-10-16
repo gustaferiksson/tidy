@@ -69,7 +69,7 @@ All are synchronous and optimistic: state changes at once, the GitHub call goes 
 |---|---|---|
 | `markRead(_ ids: [String])` | Rows dim | `PATCH` per unread thread |
 | `markDone(_ ids: [String])` | Rows move to Done, marked read | `PATCH` per unread thread |
-| `moveToInbox(_ ids: [String])` | Done rows return as read. Immediate, not undoable | none |
+| `moveToInbox(_ ids: [String])` | Done rows return as read. Immediate, not undoable. Cancels a still-pending Done or Mute for these rows | `PATCH` per unread row whose Done/Mute was cancelled, else none |
 | `removeAllDone()` | Done emptied | `DELETE` per thread, 4 at a time |
 | `markAllRead()` | Rows dim | `PUT /notifications` (no scope, nothing hidden), `PUT /repos/{o}/{r}/notifications` (repo scope), or `PATCH` per visible unread thread (Participating Only or hide rules hiding something) |
 | `muteThread(_ id: String)` | Row moves to Done | `PUT …/subscription {ignored: true}` then `PATCH`; adds to `muted` on success |

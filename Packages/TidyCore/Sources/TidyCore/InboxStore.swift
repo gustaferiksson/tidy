@@ -226,9 +226,23 @@ public final class InboxStore {
 
   public func moveToInbox(_ ids: [String]) {
     let moving = done.filter { ids.contains($0.id) }
-    done.removeAll { ids.contains($0.id) }
+    let moved = Set(moving.map(\.id))
+    done.removeAll { moved.contains($0.id) }
     inbox = (inbox + moving).sorted { $0.thread.updatedAt > $1.thread.updatedAt }
+    let interrupted = pending.filter { [.done, .mute].contains($0.action) && !moved.isDisjoint(with: $0.threadIDs) }
+    for change in interrupted {
+      let kept = change.restricted(to: Set(change.threadIDs).subtracting(moved))
+      if undoableChange?.id == change.id { undoableChange = kept.items.isEmpty ? nil : kept }
+      guard kept.items.isEmpty else {
+        pending = pending.map { $0.id == change.id ? kept : $0 }
+        continue
+      }
+      pending.removeAll { $0.id == change.id }
+      commitTasks.removeValue(forKey: change.id)?.cancel()
+    }
+    save(pending, as: "pending.json")
     save(done, as: "done.json")
+    perform(.markRead, items: interrupted.flatMap { $0.items.filter { moved.contains($0.id) } }, delay: .zero)
   }
 
   public func removeAllDone() {
