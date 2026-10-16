@@ -38,6 +38,11 @@ struct GeneralSettings: View {
                 }
                 .padding(.vertical, 4)
                 .disabled(!settings.showMenuBarIcon)
+                Picker("Menu bar shows", selection: $settings.menuBarCount) {
+                    Text("Unread notifications").tag(MenuBarCount.unread)
+                    Text("Everything not done").tag(MenuBarCount.notDone)
+                }
+                .disabled(!settings.showMenuBarIcon)
             } header: {
                 Text("Menu Bar")
             } footer: {
@@ -110,14 +115,14 @@ private struct MenuBarStyleOption: View {
     var body: some View {
         let isSelected = selection == style
         let title = switch style {
-        case .iconAndCount: "Icon and Unread Count"
-        case .countOnly: "Unread Count Only"
+        case .iconAndCount: "Icon and Count"
+        case .countOnly: "Count Only"
         case .iconOnly: "Icon Only"
         }
         Button { selection = style } label: {
             VStack(spacing: 8) {
                 HStack(spacing: 4) {
-                    if style != .countOnly { Image(systemName: "tray.badge") }
+                    if style != .countOnly { Image(systemName: style == .iconOnly ? "tray.badge" : "tray") }
                     if style != .iconOnly { Text("3").monospacedDigit() }
                 }
                 .font(.system(size: 13, weight: .medium))

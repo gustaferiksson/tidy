@@ -10,7 +10,7 @@ Tidy runs on macOS 26 only. It lives in the menu bar as a `MenuBarExtra` with th
 
 | Surface | What it is |
 |---|---|
-| Menu bar label | A glyph, an unread count, or both |
+| Menu bar label | A glyph, a count, or both |
 | Panel | 400 × 560 pt, fixed size. Shows the Inbox list, or Quick Look pushed on top of it |
 | macOS banners | Sent through `UNUserNotificationCenter` |
 | Settings scene | Tabs: General, GitHub, Notifications, Filters, About |
@@ -21,14 +21,16 @@ Reopening the app from Finder or Spotlight (`applicationShouldHandleReopen`) ope
 
 Set in Settings › General › Menu Bar.
 
-| Style | Unread > 0 | Unread = 0 |
+| Style | Count > 0 | Count = 0 |
 |---|---|---|
-| Icon + Unread Count (default) | `tray.badge` 3 | `tray` |
+| Icon and Count (default) | `tray` 3 | `tray` |
 | Count Only | 3 | `tray` (so the item is never empty) |
 | Icon Only | `tray.badge` | `tray` |
 
+- **Menu bar shows** picks what the count tracks:
+  - **Unread notifications** (default): threads that are unread and not hidden by a filter.
+  - **Everything not done**: threads still in the inbox (not marked done), read or unread, and not hidden by a filter.
 - The count tops out at "99+".
-- It counts threads that are unread and not hidden by a filter.
 - Glyphs are template images.
 - When the token is missing or invalid, the label shows `tray` with no count.
 - When offline or rate limited, the label keeps the last known count.
@@ -350,7 +352,7 @@ The standard `Settings` scene with toolbar tabs, about 480 pt wide.
 
 | Tab | Controls |
 |---|---|
-| General | Launch at Login (`SMAppService.mainApp`), the Menu Bar picker, Automatically check for updates (on by default: at launch, every 24 h and on wake), **Check for Updates** |
+| General | Launch at Login (`SMAppService.mainApp`), the Menu Bar style picker and **Menu bar shows** (Unread notifications or Everything not done), Automatically check for updates (on by default: at launch, every 24 h and on wake), **Check for Updates** |
 | GitHub | When signed out: a `SecureField` labelled "Personal access token (classic)", a **Create Token…** link to `https://github.com/settings/tokens/new?scopes=notifications,repo&description=Tidy`, and **Connect**. Connect calls `GET /user` and requires `repo` in `X-OAuth-Scopes`. A token that starts with `github_pat_` is rejected inline before any network call: "Fine-grained tokens can't read notifications. Use a classic token." Other errors also show inline under the field. When signed in: avatar, login, a scope checklist, **Replace Token…** and **Disconnect**. The token lives in the Keychain (generic password, this device only) |
 | Notifications | The system permission status, with **Open System Settings…** for sound, style and turning banners off. A "Notify for" checklist of every reason, all on by default, grouped as Participating, Security and Activity |
 | Filters | The rule list (+ and −, drag to reorder), a sheet for editing a rule, and the muted threads |

@@ -37,17 +37,18 @@ private struct MenuBarLabel: View {
     let settings: AppSettings
 
     var body: some View {
-        Image(nsImage: menuBarImage(store: store, style: settings.menuBarStyle))
+        Image(nsImage: menuBarImage(store: store, style: settings.menuBarStyle, counting: settings.menuBarCount))
     }
 }
 
 // MenuBarExtra flattens its label to plain title text, so the glyph and count are drawn into one template image.
 @MainActor
-func menuBarImage(store: InboxStore, style: MenuBarStyle) -> NSImage {
+func menuBarImage(store: InboxStore, style: MenuBarStyle, counting: MenuBarCount = .unread) -> NSImage {
     let isBroken = !store.isSignedIn || store.issue == .unauthorized || store.issue == .missingScope
-    let count = isBroken ? 0 : store.unreadCount
+    let tracked = counting == .unread ? store.unreadCount : store.inbox.count { !store.rules.outcome(for: $0).hides }
+    let count = isBroken ? 0 : tracked
     let font = NSFont.menuBarFont(ofSize: 0)
-    let symbolName = count > 0 ? "tray.badge" : "tray"
+    let symbolName = style == .iconOnly && count > 0 ? "tray.badge" : "tray"
     let showsSymbol = count == 0 || style != .countOnly
     let showsCount = count > 0 && style != .iconOnly
     let symbol = showsSymbol
@@ -69,6 +70,6 @@ func menuBarImage(store: InboxStore, style: MenuBarStyle) -> NSImage {
         return true
     }
     image.isTemplate = true
-    image.accessibilityDescription = count > 0 ? "Tidy, \(count) unread" : "Tidy"
+    image.accessibilityDescription = count > 0 ? "Tidy, \(count) \(counting == .unread ? "unread" : "not done")" : "Tidy"
     return image
 }
