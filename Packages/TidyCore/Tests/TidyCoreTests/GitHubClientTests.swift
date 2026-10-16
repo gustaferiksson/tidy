@@ -72,6 +72,24 @@ struct GitHubClientTests {
     #expect(fetch.isComplete)
   }
 
+  @Test func neverSendsTheTokenToAnotherHost() async throws {
+    let server = StubServer()
+    server.on(
+      "GET", "/notifications",
+      respond: .encoded(makeThreads(count: 50), headers: ["Link": "<https://evil.example/notifications?page=2>; rel=\"next\""]))
+    let fetch = try await server.client.notifications(since: since, ifModifiedSince: nil)
+    #expect(fetch.threads?.count == 50)
+    struct Pull: Decodable { let number: Int }
+    await #expect(throws: GitHubError.forbidden) {
+      try await server.client.get(Pull.self, from: URL(string: "https://evil.example/repos/octo/app/pulls/42")!)
+    }
+    await #expect(throws: GitHubError.forbidden) {
+      try await server.client.get(Pull.self, from: URL(string: "http://api.github.com/repos/octo/app/pulls/42")!)
+    }
+    #expect(server.requests.allSatisfy { $0.url.host() == "api.github.com" && $0.url.scheme == "https" })
+    #expect(server.requests.count == 1)
+  }
+
   @Test func sinceIsLocalMidnightFourteenDaysAgo() {
     var calendar = Calendar(identifier: .gregorian)
     calendar.timeZone = TimeZone(identifier: "Europe/Stockholm")!
