@@ -24,6 +24,7 @@ enum InboxSnapshot {
     }
 
     static func capture(to directory: URL, updater: AppUpdater) async {
+        NSApp.setActivationPolicy(.prohibited)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         let defaults = UserDefaults(suiteName: "dev.gustaf.Tidy.inboxSnapshot") ?? .standard
         defaults.removePersistentDomain(forName: "dev.gustaf.Tidy.inboxSnapshot")
@@ -58,11 +59,13 @@ enum InboxSnapshot {
                     content: InboxPanel().environment(store).environment(panel).environment(updater).defaultAppStorage(defaults)
                 )
                 window.hidesOnDeactivate = false
+                window.styleMask = [.borderless, .fullSizeContentView]
                 window.isOpaque = true
                 window.backgroundColor = .windowBackgroundColor
                 window.appearance = NSAppearance(named: appearance)
-                window.setFrameOrigin(NSPoint(x: -4000, y: 0))
+                window.setFrameOrigin(NSPoint(x: -10000, y: -10000))
                 window.orderFrontRegardless()
+                guard !NSScreen.screens.contains(where: { $0.frame.intersects(window.frame) }) else { exit(1) }
                 try? await Task.sleep(for: .seconds(1.5))
                 if let image = image(of: window) {
                     try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?
