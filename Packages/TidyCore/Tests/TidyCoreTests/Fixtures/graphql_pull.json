@@ -1,0 +1,48 @@
+{
+  "data": {
+    "repository": {
+      "issueOrPullRequest": {
+        "kind": "PullRequest",
+        "author": {"login": "mona", "avatarUrl": "https://avatars.githubusercontent.com/u/2?s=40&v=4"},
+        "createdAt": "2026-10-14T08:00:00Z",
+        "url": "https://github.com/octo/app/pull/42",
+        "body": "Adds **dark mode**.",
+        "labels": {"nodes": [{"name": "enhancement", "color": "a2eeef"}, {"name": "ui", "color": "ededed"}]},
+        "assignees": {"nodes": [{"login": "mona", "avatarUrl": null}]},
+        "milestone": {"title": "v1.2"},
+        "baseRefName": "main",
+        "headRefName": "mona/dark-mode",
+        "additions": 120,
+        "deletions": 14,
+        "changedFiles": 7,
+        "mergeable": "CONFLICTING",
+        "reviewDecision": "CHANGES_REQUESTED",
+        "latestReviews": {"nodes": [
+          {"state": "APPROVED", "author": {"login": "octocat", "avatarUrl": null}},
+          {"state": "CHANGES_REQUESTED", "author": {"login": "hubot", "avatarUrl": null}},
+          {"state": "COMMENTED", "author": {"login": "lisa", "avatarUrl": null}}
+        ]},
+        "reviewRequests": {"nodes": [
+          {"requestedReviewer": {"login": "lisa", "avatarUrl": null}},
+          {"requestedReviewer": {"slug": "design", "avatarUrl": null}},
+          {"requestedReviewer": null}
+        ]},
+        "commits": {"nodes": [{"commit": {"statusCheckRollup": {"state": "FAILURE", "contexts": {"nodes": [
+          {"name": "build", "status": "COMPLETED", "conclusion": "SUCCESS"},
+          {"name": "test", "status": "COMPLETED", "conclusion": "SUCCESS"},
+          {"name": "lint", "status": "COMPLETED", "conclusion": "FAILURE"},
+          {"name": "docs", "status": "COMPLETED", "conclusion": "SKIPPED"},
+          {"name": "deploy-preview", "status": "IN_PROGRESS", "conclusion": null},
+          {"context": "ci/legacy", "state": "SUCCESS"}
+        ]}}}}]},
+        "timelineItems": {"totalCount": 14, "nodes": [
+          {"id": "IC_1", "author": {"login": "octocat", "avatarUrl": null}, "body": "Looks good, one nit.", "createdAt": "2026-10-15T09:00:00Z", "url": "https://github.com/octo/app/pull/42#issuecomment-1"},
+          {"id": "PRR_1", "author": {"login": "octocat", "avatarUrl": null}, "body": "", "createdAt": "2026-10-15T09:05:00Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-1", "state": "APPROVED"},
+          {"id": "PRR_2", "author": {"login": "lisa", "avatarUrl": null}, "body": "", "createdAt": "2026-10-15T09:10:00Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-2", "state": "COMMENTED"},
+          {"id": "PRR_3", "author": {"login": "hubot", "avatarUrl": null}, "body": "Please add tests.", "createdAt": "2026-10-15T10:00:00Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-3", "state": "CHANGES_REQUESTED"},
+          {}
+        ]}
+      }
+    }
+  }
+}

@@ -46,6 +46,7 @@ enum InboxSnapshot {
             ("hover", populated, nil, "1"),
             ("hoverselected", populated, nil, "2"),
             ("quicklook", populated, "1", nil),
+            ("quicklookissue", populated, "2", nil),
             ("security", populated, "3", nil),
             ("filtered", filtered, nil, "2"),
             ("empty", empty, nil, nil),
@@ -54,7 +55,14 @@ enum InboxSnapshot {
         for (name, store, quickLookID, hoveredID) in scenarios {
             let panel = PanelController(store: store, updater: updater)
             panel.selection = ["2"]
-            if let quickLookID { panel.showDetails(quickLookID) }
+            if let quickLookID {
+                panel.showDetails(quickLookID)
+                store.loadThreadDetails(for: quickLookID)
+                for _ in 0..<100 {
+                    guard let item = store.inbox.first(where: { $0.id == quickLookID }), store.threadDetails(for: item) == .loading else { break }
+                    try? await Task.sleep(for: .milliseconds(20))
+                }
+            }
             panel.hoveredID = hoveredID
             for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
                 let window = PanelController.makePanelWindow(
@@ -103,14 +111,35 @@ private final class FixtureProtocol: URLProtocol, @unchecked Sendable {
     override func startLoading() {
         guard let url = request.url else { return }
         let isEmpty = request.value(forHTTPHeaderField: "Authorization") == "Bearer empty"
-        let isRead = request.httpMethod == "GET"
-        let body = isEmpty && url.path() == "/notifications" ? Data("[]".utf8) : FixtureData.routes[url.path()]
+        let isGraphQL = url.path() == "/graphql"
+        let isRead = request.httpMethod == "GET" || isGraphQL
+        let body = isGraphQL
+            ? FixtureData.graphQL(number: Self.graphQLNumber(in: request))
+            : isEmpty && url.path() == "/notifications" ? Data("[]".utf8) : FixtureData.routes[url.path()]
         let status = isRead ? (body == nil ? 404 : 200) : 205
         let headers = ["X-OAuth-Scopes": "notifications, repo", "Content-Type": "application/json"]
         guard let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: headers) else { return }
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         client?.urlProtocol(self, didLoad: body ?? Data())
         client?.urlProtocolDidFinishLoading(self)
+    }
+
+    private static func graphQLNumber(in request: URLRequest) -> Int? {
+        guard let stream = request.httpBodyStream else {
+            let json = request.httpBody.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+            return (json?["variables"] as? [String: Any])?["number"] as? Int
+        }
+        stream.open()
+        defer { stream.close() }
+        var data = Data()
+        var buffer = [UInt8](repeating: 0, count: 4096)
+        while stream.hasBytesAvailable {
+            let count = stream.read(&buffer, maxLength: buffer.count)
+            guard count > 0 else { break }
+            data.append(buffer, count: count)
+        }
+        let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any]
+        return (json?["variables"] as? [String: Any])?["number"] as? Int
     }
 }
 
@@ -184,6 +213,76 @@ private enum FixtureData {
          "dependency": ["package": ["name": "cookie"]],
          "security_advisory": ["ghsa_id": "GHSA-pxg6-pf52-xh8x", "summary": "Accepts cookie name, path and domain with out of bounds characters", "severity": "low"]],
     ]
+
+    static let pullDescription = """
+    ## Summary
+
+    Moves the inbox panel onto the system **Liquid Glass** material and drops the custom blur.
+
+    - Header and footer sit directly on the glass
+    - Rows keep their hover and selection treatment
+    - Quick Look inherits the same background
+
+    ## Testing
+
+    1. Open the panel in light and dark mode
+    2. Toggle Reduce Transparency in Accessibility settings
+    3. Step through threads with ↑ and ↓ in Quick Look
+
+    ## Notes
+
+    The snapshot hook still captures the panel off-screen, so the PNGs in `dist/snapshots` reflect the change.
+    """
+
+    static func graphQL(number: Int?) -> Data? {
+        let minutes = { (ago: Double) in Date.now.addingTimeInterval(-ago * 60).formatted(.iso8601) }
+        let who = { (login: String) -> [String: Any] in ["login": login] }
+        let comment = { (id: String, login: String, body: String, ago: Double, state: String?) -> [String: Any] in
+            ["id": id, "author": who(login), "body": body, "createdAt": minutes(ago), "url": "https://github.com/tinecli/tidy/pull/42#\(id)", "state": state ?? NSNull()]
+        }
+        let node: [String: Any]
+        if number == 42 {
+            node = [
+                "kind": "PullRequest", "author": who("mira"), "createdAt": minutes(2_900), "url": "https://github.com/tinecli/tidy/pull/42",
+                "body": pullDescription,
+                "labels": ["nodes": [["name": "design", "color": "d4c5f9"], ["name": "macOS 26", "color": "0e8a16"], ["name": "enhancement", "color": "a2eeef"]]],
+                "assignees": ["nodes": [who("mira")]],
+                "milestone": ["title": "0.3"],
+                "baseRefName": "main", "headRefName": "mira/liquid-glass",
+                "additions": 248, "deletions": 96, "changedFiles": 9, "mergeable": "MERGEABLE", "reviewDecision": "REVIEW_REQUIRED",
+                "latestReviews": ["nodes": [["state": "APPROVED", "author": who("sam")], ["state": "COMMENTED", "author": who("jonas")]]],
+                "reviewRequests": ["nodes": [["requestedReviewer": who("gustaf")], ["requestedReviewer": ["slug": "design"]]]],
+                "commits": ["nodes": [["commit": ["statusCheckRollup": ["state": "FAILURE", "contexts": ["nodes": [
+                    ["name": "build", "status": "COMPLETED", "conclusion": "SUCCESS"],
+                    ["name": "test", "status": "COMPLETED", "conclusion": "SUCCESS"],
+                    ["name": "swift-format", "status": "COMPLETED", "conclusion": "SUCCESS"],
+                    ["name": "lint", "status": "COMPLETED", "conclusion": "FAILURE"],
+                    ["name": "ui-tests", "status": "IN_PROGRESS"],
+                ]]]]]]],
+                "timelineItems": ["totalCount": 7, "nodes": [
+                    comment("issuecomment-11", "mira", "Ready for another look. Screenshots are in the description.", 240, nil),
+                    comment("pullrequestreview-12", "sam", "", 180, "APPROVED"),
+                    comment("pullrequestreview-13", "jonas", pullComment, 30, "COMMENTED"),
+                    comment("issuecomment-14", "mira", "Good catch, no confirmation: Done can be undone for 5 seconds. Fixed the lint failure in `3f2a1c0`.", 4, nil),
+                ]],
+            ]
+        } else if number == 57 {
+            node = [
+                "kind": "Issue", "author": who("sam"), "createdAt": minutes(400), "url": "https://github.com/tinecli/tidy/issues/57",
+                "body": "Steps to reproduce:\n\n1. Connect a token\n2. Revoke it on github.com\n3. Wait for the next poll",
+                "labels": ["nodes": [["name": "bug", "color": "d73a4a"], ["name": "crash", "color": "b60205"]]],
+                "assignees": ["nodes": [who("gustaf")]],
+                "milestone": ["title": "0.3"],
+                "comments": ["totalCount": 2, "nodes": [
+                    comment("issuecomment-21", "jonas", "Reproduced on main. The poll task keeps the old client alive.", 60, nil),
+                    comment("issuecomment-22", "sam", "@gustaf can you take a look?", 18, nil),
+                ]],
+            ]
+        } else {
+            return nil
+        }
+        return try? JSONSerialization.data(withJSONObject: ["data": ["repository": ["issueOrPullRequest": node]]])
+    }
 
     static let routes: [String: Data] = {
         let api = "https://api.github.com"

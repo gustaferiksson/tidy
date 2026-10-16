@@ -77,6 +77,21 @@ All are synchronous and optimistic: state changes at once, the GitHub call goes 
 | `retryFailed()` | Re-applies failed changes and sends them now | as above |
 | `dismissFailure()` | Clears `failure` | none |
 | `loadDetails(for id: String)` | Quick Look Retry: refetches subject data | `GET subject.url` etc. |
+| `loadThreadDetails(for id: String)` | Quick Look opened or stepped to a thread: fetches its rich details unless already loaded or loading for the same `updatedAt` (a `.failed` entry refetches, so it is also Retry). No-op for kinds `ThreadDetails.isSupported` rejects. Never called by polling | One `POST /graphql` |
+
+### Thread details (Quick Look only)
+
+`threadDetails(for item: InboxItem) -> ThreadDetailsStatus?` reads the in-memory cache, keyed by thread id and `updatedAt`: nil means not fetched for this `updatedAt` yet. Statuses: `.loading` (show the skeleton), `.loaded(ThreadDetails)`, `.unavailable` (not found, or the token lacks the scope GraphQL wants, e.g. discussions without `read:discussion`: show the basic preview, no error), `.failed` (offer Retry). The cache is cleared on disconnect and pruned to threads still in the inbox on each load. Nothing is written to disk.
+
+`ThreadDetails`: `author`, `createdAt`, `url`, `body` (Markdown), `labels: [IssueLabel]` (`name`, `color` hex without `#`), `assignees`, `milestone?`, `comments: [TimelineComment]` (oldest first, at most 10), `totalComments` (all comments and reviews; show "View all N on GitHub" when larger than `comments.count`), `pullRequest: PullRequestDetails?`, `discussion: DiscussionDetails?`. `ThreadDetails.isSupported(thread)`: pull requests and issues with a number, and discussions.
+
+- `PullRequestDetails`: `baseBranch`, `headBranch`, `additions`, `deletions`, `changedFiles`, `reviewDecision: ReviewDecision?` (`.approved .changesRequested .reviewRequired`, `title`), `reviewers: [Reviewer]` (`user`, `state: ReviewState`), `checks: CheckSummary?`, `hasConflicts`.
+- `ReviewState`: `.approved .changesRequested .commented .dismissed .requested`, `title`. A reviewer who is requested again shows as `.requested`, not their older review.
+- `CheckSummary`: `state: CheckState` (`.success .failure .pending`), `passed`, `failing: [String]`, `pending: [String]` (check names); `summary` is the one-line text ("3 checks passed · 1 failing: lint · 1 pending"). Skipped and neutral checks count as neither.
+- `TimelineComment`: `id`, `author?`, `body`, `createdAt`, `url?`, `review: ReviewState?` (set for pull request reviews; a review with an empty body is an event row, and empty "commented" reviews are dropped), `isAnswer` (discussions).
+- `DiscussionDetails`: `category?`, `isAnswered`.
+
+Pull requests and issues use one query (`repository.issueOrPullRequest(number:)`). Discussion notifications have no `subject.url`, so their query is a separate document that searches the repository by exact title (`search(type: DISCUSSION)`); a scope error there can't affect pull request or issue details. GraphQL errors in a 200 response map to `GitHubError`: `NOT_FOUND`/`INSUFFICIENT_SCOPES` → `.notFound`, `FORBIDDEN` → `.forbidden`, `RATE_LIMITED` → `.rateLimited`, anything else without data → `.decoding`.
 
 `markRead`, `markRead(opening:)` and `markDone` also accept ids not loaded yet (banner actions right after relaunch): they apply, not undoable, on the next fetch that returns a list (a 304 keeps them waiting). Ids that fetch doesn't list are dropped. Kept in memory only.
 
@@ -127,7 +142,7 @@ The store already applies: baseline-only first fetch after launch or token chang
 
 `StateGlyph(kind:state:severity:)` gives `octicon: Octicon`, `tone: StateTone` and `label` (VoiceOver and tooltip, "Pull request, draft"). `StateGlyph.baseOcticon(for:)` for "State unavailable". Kind-to-Octicon mapping is the FLOW §5 table; Dependabot alerts use `.alert` (warning triangle) tinted by highest severity.
 
-`Octicon`: one case per GitHub Octicon the glyphs use. `rawValue` is the Octicon name and the custom symbol's asset name in the app's `Resources/Assets.xcassets/Octicons`, so render it with `Image(octicon.rawValue)` and size it with `.font` like an SF Symbol.
+`Octicon`: one case per GitHub Octicon the glyphs and the Quick Look review and check badges use. `rawValue` is the Octicon name and the custom symbol's asset name in the app's `Resources/Assets.xcassets/Octicons`, so render it with `Image(octicon.rawValue)` and size it with `.font` like an SF Symbol.
 
 `StateTone`: `.green .purple .red .grey .orange .yellow`. The app maps tones to colours (FLOW §5):
 
@@ -149,7 +164,7 @@ The store already applies: baseline-only first fetch after launch or token chang
 
 ## GitHubClient and helpers
 
-`GitHubClient(token:session:baseURL:cache:)` is a `Sendable` struct the store uses internally. Public for Settings and tests: `validate()`, `notifications(since:ifModifiedSince:)`, `details(for:previous:)`, `markRead`, `remove`, `markAllRead(lastReadAt:repository:)`, `mute`, `unmute`, `get(_:from:)`, `GitHubClient.since(now:)`.
+`GitHubClient(token:session:baseURL:cache:)` is a `Sendable` struct the store uses internally. Public for Settings and tests: `validate()`, `notifications(since:ifModifiedSince:)`, `details(for:previous:)`, `threadDetails(for:)`, `markRead`, `remove`, `markAllRead(lastReadAt:repository:)`, `mute`, `unmute`, `get(_:from:)`, `GitHubClient.since(now:)`.
 
 - The token is only sent to `baseURL`'s scheme and host: any other URL (subject, comment, `Link` next page) fails with `.forbidden`, and a foreign next page ends paging.
 - `GitHubError`: `.fineGrainedToken .unauthorized .missingScopes([String]) .ssoRequired(organization:url:) .rateLimited(resetsAt:) .offline .forbidden .notFound .server(status:) .unexpectedStatus(Int) .decoding`; `message` is the inline text for Settings.

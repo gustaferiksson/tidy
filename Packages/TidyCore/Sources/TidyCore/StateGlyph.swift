@@ -33,6 +33,10 @@ public enum Octicon: String, CaseIterable, Sendable {
   case shield
   case shieldCheck = "shield-check"
   case personAdd = "person-add"
+  case check
+  case fileDiff = "file-diff"
+  case comment
+  case dotFill = "dot-fill"
 }
 
 public struct StateGlyph: Hashable, Sendable {

@@ -18,6 +18,15 @@ public struct NotificationsFetch: Sendable {
   public let scopes: [String]?
 }
 
+private struct GraphQLEnvelope<T: Decodable>: Decodable {
+  struct Problem: Decodable {
+    let type: String?
+  }
+
+  let data: T?
+  let errors: [Problem]?
+}
+
 public struct GitHubClient: Sendable {
   public static let defaultBaseURL = URL(string: "https://api.github.com")!
   public static let threadLimit = 200
@@ -112,6 +121,19 @@ public struct GitHubClient: Sendable {
       await cache?.store(ResponseCache.Entry(etag: etag, data: data), for: url)
     }
     return decoded
+  }
+
+  func graphQL<T: Decodable, Node>(_ type: T.Type, query: String, variables: [String: Any], node: (T) -> Node?) async throws -> Node {
+    let body: [String: Any] = ["query": query, "variables": variables]
+    let (data, _) = try await send(request(baseURL.appending(path: "graphql"), method: "POST", body: body))
+    let envelope = try Self.decode(GraphQLEnvelope<T>.self, from: data)
+    if let found = envelope.data.flatMap(node) { return found }
+    let types = envelope.errors?.compactMap(\.type) ?? []
+    if types.contains("INSUFFICIENT_SCOPES") { throw GitHubError.notFound }
+    if types.contains("FORBIDDEN") { throw GitHubError.forbidden }
+    if types.contains("RATE_LIMITED") { throw GitHubError.rateLimited(resetsAt: .now.addingTimeInterval(60)) }
+    if envelope.data == nil, !types.contains("NOT_FOUND") { throw GitHubError.decoding }
+    throw GitHubError.notFound
   }
 
   public func markRead(threadID: String) async throws {

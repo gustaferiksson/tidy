@@ -27,6 +27,7 @@ public final class InboxStore {
   public var rules: [FilterRule] = [] {
     didSet { save(rules, as: "rules.json") }
   }
+  private var threadDetailsCache: [String: (updatedAt: Date, status: ThreadDetailsStatus)] = [:]
   public var silencedReasons: Set<Reason> = [] {
     didSet { save(silencedReasons, as: "silenced-reasons.json") }
   }
@@ -211,6 +212,31 @@ public final class InboxStore {
     let items = inbox.filter { $0.id == id }
     for item in items { setStatus(.loading, for: item.thread) }
     Task { await enrich(items) }
+  }
+
+  public func threadDetails(for item: InboxItem) -> ThreadDetailsStatus? {
+    guard let entry = threadDetailsCache[item.id], entry.updatedAt == item.thread.updatedAt else { return nil }
+    return entry.status
+  }
+
+  public func loadThreadDetails(for id: String) {
+    guard let client, let item = inbox.first(where: { $0.id == id }), ThreadDetails.isSupported(item.thread) else { return }
+    if let status = threadDetails(for: item), status != .failed { return }
+    let updatedAt = item.thread.updatedAt
+    threadDetailsCache = threadDetailsCache.filter { key, _ in inbox.contains { $0.id == key } }
+    threadDetailsCache[id] = (updatedAt, .loading)
+    Task {
+      let status: ThreadDetailsStatus
+      do {
+        status = .loaded(try await client.threadDetails(for: item.thread))
+      } catch GitHubError.notFound {
+        status = .unavailable
+      } catch {
+        status = .failed
+      }
+      guard threadDetailsCache[id]?.updatedAt == updatedAt else { return }
+      threadDetailsCache[id] = (updatedAt, status)
+    }
   }
 
   public func markRead(_ ids: [String]) {
@@ -621,6 +647,7 @@ public final class InboxStore {
   }
 
   private func clearAccountData() {
+    threadDetailsCache = [:]
     for task in commitTasks.values { task.cancel() }
     commitTasks = [:]
     pending = []

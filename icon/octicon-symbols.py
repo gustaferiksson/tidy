@@ -8,6 +8,7 @@ NAMES = [
     "issue-opened", "issue-closed", "skip", "comment-discussion", "discussion-closed",
     "tag", "git-commit", "x-circle", "check-circle", "stop", "bell",
     "alert", "key", "shield", "shield-check", "person-add",
+    "check", "file-diff", "comment", "dot-fill",
 ]
 SCALE = 79 / 16
 SIDE_BEARING = 7.0

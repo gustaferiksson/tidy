@@ -72,12 +72,14 @@ struct QuickLookView: View {
     }
 
     private func details(of item: InboxItem) -> some View {
+        let rich = store.threadDetails(for: item)
+        let state = rich?.details?.discussion?.isAnswered == true ? .answered : item.state
         let glyph = item.status == .failed
             ? StateGlyph(octicon: StateGlyph.baseOcticon(for: item.thread.subject.kind), tone: .grey, label: "State unavailable")
-            : item.glyph
+            : StateGlyph(kind: item.thread.subject.kind, state: state, severity: item.severity)
         let stateWord = item.status == .failed
             ? "State unavailable"
-            : (item.thread.subject.kind.isSecurity ? item.severity?.title : item.state?.title) ?? item.thread.subject.kind.title
+            : (item.thread.subject.kind.isSecurity ? item.severity?.title : state?.title) ?? item.thread.subject.kind.title
         let kindLine = [item.thread.subject.kind.title + (item.thread.number.map { " #\($0)" } ?? ""), item.thread.repository.fullName]
         let commenter = item.details?.latestComment?.author?.login
         let people = [
@@ -105,10 +107,22 @@ struct QuickLookView: View {
             .font(.subheadline)
             .foregroundStyle(.secondary)
             Divider().padding(.vertical, 4)
-            preview(of: item)
+            if !ThreadDetails.isSupported(item.thread) || rich == .unavailable {
+                preview(of: item)
+            } else if rich == .failed {
+                HStack(spacing: 8) {
+                    Text("Couldn't load the conversation").foregroundStyle(.secondary)
+                    Button("Retry") { store.loadThreadDetails(for: item.id) }
+                }
+                .font(.subheadline)
+                preview(of: item)
+            } else {
+                ThreadDetailsView(details: rich?.details).id(item.id)
+            }
         }
         .textSelection(.enabled)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .task(id: "\(item.id)@\(item.thread.updatedAt.timeIntervalSince1970)") { store.loadThreadDetails(for: item.id) }
     }
 
     @ViewBuilder private func preview(of item: InboxItem) -> some View {
