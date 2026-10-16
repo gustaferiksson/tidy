@@ -54,6 +54,7 @@ public final class InboxStore {
   @ObservationIgnored private var pollTask: Task<Void, Never>?
   @ObservationIgnored private var networkTask: Task<Void, Never>?
   @ObservationIgnored private var commitTasks: [UUID: Task<Void, Never>] = [:]
+  @ObservationIgnored private var inFlightCommits: [UUID: Task<Void, Never>] = [:]
   @ObservationIgnored private var enriching: Set<String> = []
   @ObservationIgnored private var staleDetails: [String: SubjectDetails] = [:]
   @ObservationIgnored private var ruleActed: Set<String> = []
@@ -309,6 +310,7 @@ public final class InboxStore {
       commitTasks.removeValue(forKey: change.id)?.cancel()
       await commit(change.id)
     }
+    for task in inFlightCommits.values { await task.value }
   }
 
   public func retryFailed() {
@@ -538,7 +540,8 @@ public final class InboxStore {
   }
 
   private func commit(_ id: UUID) async {
-    commitTasks[id] = nil
+    inFlightCommits[id] = commitTasks.removeValue(forKey: id)
+    defer { inFlightCommits[id] = nil }
     guard let client, isOnline, let index = pending.firstIndex(where: { $0.id == id }) else { return }
     if undoableChange?.id == id { undoableChange = nil }
     let change = pending.remove(at: index)
