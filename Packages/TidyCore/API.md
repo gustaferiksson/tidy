@@ -55,7 +55,7 @@ Network loss pauses polling and sets `issue = .offline`; reconnect resumes polli
 | `lastSync: Date?` | "Updated 1m ago" |
 | `issue: SyncIssue?` | `.offline`, `.rateLimited(resumesAt:)`, `.ssoRequired(organization:url:)`, `.notResponding` (third failed poll in a row), `.unauthorized`, `.missingScope` |
 | `isOnline: Bool` | Current network path |
-| `pending: [PendingChange]`, `undoableChange: PendingChange?` | Undo toast: `undoableChange.message` ("Marked 3 as done"); nil means hide the toast |
+| `pending: [PendingChange]`, `undoableChange: PendingChange?` | Undo toast: `undoableChange.message` ("Marked 3 as done"); nil means hide the toast. Only the latest action is undoable, and only for `commitDelay` after it (or until it is sent). Changes still queued offline or restored from `pending.json` are never undoable |
 | `failure: ActionFailure?` | Footer "Couldn't update 2 notifications · Retry" (`message`, `count`) |
 | `muted: [MutedThread]` | Muted threads listed in Settings › Filters |
 | `rules: [FilterRule]` (settable) | Filter rules in order, persisted on set |
@@ -75,7 +75,7 @@ All are synchronous and optimistic: state changes at once, the GitHub call goes 
 | `muteThread(_ id: String)` | Row moves to Done | `PUT …/subscription {ignored: true}` then `PATCH`; adds to `muted` on success |
 | `muteRepository(_ fullName: String)` | Appends rule "Repository is X → Hide" | none |
 | `unmute(_ id: String) async throws` | Removes from `muted` | `PUT …/subscription {ignored: false}`, immediate |
-| `undo() -> [String]` | Reverts the latest pending change; returns its thread ids to scroll to and select | cancelled |
+| `undo() -> [String]` | Reverts `undoableChange`; returns its thread ids to scroll to and select. `[]` once the window has passed | cancelled |
 | `retryFailed()` | Re-applies failed changes and sends them now | as above |
 | `dismissFailure()` | Clears `failure` | none |
 | `loadDetails(for id: String)` | Quick Look Retry: refetches subject data | `GET subject.url` etc. |

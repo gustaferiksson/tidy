@@ -299,6 +299,24 @@ struct InboxStoreTests {
     #expect(requests("PATCH") == ["/notifications/threads/101", "/notifications/threads/101"])
   }
 
+  @Test func undoWindowClosesWhileOfflineAndAfterRelaunch() async throws {
+    server.on("PATCH", "/notifications/threads/101", respond: .offline)
+    let store = makeStore(commitDelay: .milliseconds(50))
+    await store.refresh()
+    store.markRead(["101"])
+    #expect(store.undoableChange?.threadIDs == ["101"])
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(store.pending.map(\.threadIDs) == [["101"]])
+    #expect(store.undoableChange == nil)
+    #expect(store.undo().isEmpty)
+    #expect(store.pending.count == 1)
+    let relaunched = makeStore()
+    #expect(relaunched.pending.count == 1)
+    relaunched.start()
+    #expect(relaunched.undoableChange == nil)
+    relaunched.stop()
+  }
+
   @Test func pendingChangesSurviveAPoll() async {
     let store = makeStore()
     await store.refresh()

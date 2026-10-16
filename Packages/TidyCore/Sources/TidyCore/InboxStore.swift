@@ -21,6 +21,7 @@ public final class InboxStore {
   public private(set) var failure: ActionFailure?
   public private(set) var muted: [MutedThread] = []
   public private(set) var isOnline = true
+  public private(set) var undoableChange: PendingChange?
 
   public var scope = InboxScope()
   public var showsHidden = false
@@ -96,7 +97,6 @@ public final class InboxStore {
   public var hiddenCount: Int { inbox.count { rules.outcome(for: $0).hides } }
   public var unreadCount: Int { inbox.count { $0.isUnread && !rules.outcome(for: $0).hides } }
   public var repositories: [String] { Set((inbox + done).map(\.thread.repository.fullName)).sorted() }
-  public var undoableChange: PendingChange? { pending.last }
 
   public func outcome(for item: InboxItem) -> FilterOutcome { rules.outcome(for: item) }
 
@@ -258,10 +258,14 @@ public final class InboxStore {
 
   @discardableResult
   public func undo() -> [String] {
-    guard let change = pending.popLast() else { return [] }
-    commitTasks.removeValue(forKey: change.id)?.cancel()
+    guard let id = undoableChange?.id else { return [] }
+    undoableChange = nil
+    guard let index = pending.firstIndex(where: { $0.id == id }) else { return [] }
+    let change = pending.remove(at: index)
+    commitTasks.removeValue(forKey: id)?.cancel()
     revert(change)
     save(pending, as: "pending.json")
+    save(done, as: "done.json")
     return change.threadIDs
   }
 
@@ -470,6 +474,13 @@ public final class InboxStore {
     save(done, as: "done.json")
     continuation.yield(.withdraw(threadIDs: change.threadIDs))
     schedule(change, after: delay ?? commitDelay)
+    guard delay == nil else { return }
+    undoableChange = change
+    Task { [weak self, commitDelay] in
+      try? await Task.sleep(for: commitDelay)
+      guard self?.undoableChange?.id == change.id else { return }
+      self?.undoableChange = nil
+    }
   }
 
   private func schedule(_ change: PendingChange, after delay: Duration) {
@@ -483,6 +494,7 @@ public final class InboxStore {
   private func commit(_ id: UUID) async {
     commitTasks[id] = nil
     guard let client, isOnline, let index = pending.firstIndex(where: { $0.id == id }) else { return }
+    if undoableChange?.id == id { undoableChange = nil }
     let change = pending.remove(at: index)
     save(pending, as: "pending.json")
     let errors = await Self.send(change, client: client)
@@ -611,6 +623,7 @@ public final class InboxStore {
     for task in commitTasks.values { task.cancel() }
     commitTasks = [:]
     pending = []
+    undoableChange = nil
     done = []
     muted = []
     failure = nil
