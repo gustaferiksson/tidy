@@ -90,7 +90,7 @@ On failure the affected rows roll back and `failure` is set. Offline failures st
 
 - `.newThread(InboxItem)`: post a banner. Title `item.title`, subtitle `"\(repo) · \(item.thread.reason.title)"`, body first line of `item.previewMarkdown`, `threadIdentifier` = repo full name.
 - `.summary(count:)`: more than 5 new at once; post "N new notifications" instead.
-- `.withdraw(threadIDs:)`: remove delivered banners for these threads.
+- `.withdraw(threadIDs:)`: remove delivered banners for these threads. Sent for local actions and for threads a poll shows were read elsewhere (github.com).
 
 The store already applies: baseline-only first fetch after launch or token change, unread only, `silencedReasons`, and any matching rule (Hide, Don't Notify, opt-in actions). It waits up to `bannerWait` for subject data first. The app still drops banners while the panel is open.
 

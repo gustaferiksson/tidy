@@ -26,6 +26,14 @@ final class EventRecorder: Sendable {
     }
   }
 
+  func all() async -> [InboxEvent] {
+    try? await Task.sleep(for: .milliseconds(50))
+    return events.withLock { recorded in
+      defer { recorded.removeAll() }
+      return recorded
+    }
+  }
+
   func banners() async -> [InboxEvent] {
     try? await Task.sleep(for: .milliseconds(50))
     return events.withLock { recorded in
@@ -88,6 +96,18 @@ struct InboxStoreTests {
     #expect(banners.count == 1)
     guard case .newThread(let item) = banners.first else { return #expect(Bool(false)) }
     #expect(item.id == "201")
+  }
+
+  @Test func threadsReadOnGitHubWithdrawTheirBanners() async {
+    let store = makeStore()
+    let recorder = EventRecorder(store)
+    await store.refresh()
+    #expect(await recorder.all().isEmpty)
+    threads.withLock { list in
+      for index in list.indices where ["101", "103"].contains(list[index].id) { list[index].unread = false }
+    }
+    await store.refresh()
+    #expect(await recorder.all() == [.withdraw(threadIDs: ["101", "103"])])
   }
 
   @Test func moreThanFiveNewThreadsSendOneSummary() async {

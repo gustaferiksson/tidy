@@ -369,6 +369,8 @@ public final class InboxStore {
     let unique = threads.filter { seen.insert($0.id).inserted }
     let fresh = Dictionary(uniqueKeysWithValues: unique.map { ($0.id, $0) })
     let previous = Dictionary((done + inbox).map { ($0.id, $0) }) { first, _ in first }
+    let readElsewhere = unique.filter { !$0.unread && previous[$0.id]?.isUnread == true }.map(\.id)
+    if !readElsewhere.isEmpty { continuation.yield(.withdraw(threadIDs: readElsewhere)) }
     done = done.filter { item in
       guard let thread = fresh[item.id] else { return item.thread.updatedAt < cutoff }
       return !(thread.unread && thread.updatedAt > item.thread.updatedAt)
