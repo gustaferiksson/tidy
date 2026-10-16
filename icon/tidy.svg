@@ -29,9 +29,54 @@
     <rect x="92" y="92" width="840" height="840" fill="url(#aura)"/>
   </g>
 
-  <g transform="translate(0 -16)" fill="none" stroke="url(#glyph)" stroke-width="64" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M384 336 L476 428 L652 252"/>
-    <path d="M240 540 V 724 A 72 72 0 0 0 312 796 H 712 A 72 72 0 0 0 784 724 V 540 H 640 L 596 632 H 428 L 384 540 Z"/>
+  <defs>
+    <linearGradient id="trayTop" gradientUnits="userSpaceOnUse" x1="0" y1="331" x2="0" y2="534">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e9e2df"/>
+    </linearGradient>
+    <linearGradient id="trayFace" gradientUnits="userSpaceOnUse" x1="0" y1="534" x2="0" y2="774">
+      <stop offset="0" stop-color="#f6f1ef"/>
+      <stop offset="1" stop-color="#c7bbb8"/>
+    </linearGradient>
+    <linearGradient id="gloss" gradientUnits="userSpaceOnUse" x1="0" y1="534" x2="0" y2="684">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.7"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="recess" gradientUnits="userSpaceOnUse" x1="0" y1="371" x2="0" y2="614">
+      <stop offset="0" stop-color="#140206"/>
+      <stop offset="1" stop-color="#4a0710"/>
+    </linearGradient>
+    <linearGradient id="badge" gradientUnits="userSpaceOnUse" x1="0" y1="255" x2="0" y2="431">
+      <stop offset="0" stop-color="#ff4f4a"/>
+      <stop offset="1" stop-color="#b00c1e"/>
+    </linearGradient>
+    <radialGradient id="spec" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="18"/></filter>
+  </defs>
+  <mask id="cut">
+    <rect width="1024" height="1024" fill="#fff"/>
+    <circle cx="662" cy="343" r="108" fill="#000"/>
+  </mask>
+  <g>
+    <path d="M212 600 V 700 Q 212 768 280 768 H 744 Q 812 768 812 700 V 600 Z" transform="translate(0 22)" fill="#000" fill-opacity="0.45" filter="url(#shadow)"/>
+    <g mask="url(#cut)">
+      <clipPath id="faceClip"><path d="M200 534 H 436 Q 449 534 449 548 C 449 590 476 619 512 619 C 548 619 575 590 575 548 Q 575 534 588 534 H 824 V 780 H 200 Z"/></clipPath>
+      <clipPath id="bodyClip"><path d="M360 331 H 664 Q 690 331 706 352 L 800 478 Q 812 494 812 516 V 700 Q 812 768 744 768 H 280 Q 212 768 212 700 V 516 Q 212 494 224 478 L 318 352 Q 334 331 360 331 Z"/></clipPath>
+      <path d="M360 331 H 664 Q 690 331 706 352 L 800 478 Q 812 494 812 516 V 700 Q 812 768 744 768 H 280 Q 212 768 212 700 V 516 Q 212 494 224 478 L 318 352 Q 334 331 360 331 Z" fill="url(#trayTop)"/>
+      <g clip-path="url(#bodyClip)"><g clip-path="url(#faceClip)">
+        <rect x="200" y="434" width="624" height="420" fill="url(#trayFace)"/>
+        <rect x="200" y="434" width="624" height="420" fill="url(#gloss)"/>
+      </g></g>
+      <path d="M360 331 H 664 Q 690 331 706 352 L 800 478 Q 812 494 812 516 V 700 Q 812 768 744 768 H 280 Q 212 768 212 700 V 516 Q 212 494 224 478 L 318 352 Q 334 331 360 331 Z" fill="none" stroke="#ffffff" stroke-opacity="0.9" stroke-width="3"/>
+    </g>
+    <path d="M372 370 H 652 Q 668 370 676 382 L 760 498 Q 764 504 764 514 V 534 H 588 Q 575 534 575 548 C 575 590 548 619 512 619 C 476 619 449 590 449 548 Q 449 534 436 534 H 260 V 514 Q 260 504 264 498 L 348 382 Q 356 370 372 370 Z" fill="url(#recess)"/>
+    <path d="M260 536 H 436 Q 449 536 449 550 C 449 592 476 621 512 621 C 548 621 575 592 575 550 Q 575 536 588 536 H 764" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="662" cy="343" r="88" fill="url(#badge)"/>
+    <circle cx="662" cy="343" r="87" fill="none" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
+    <ellipse cx="651.44" cy="299.0" rx="54.56" ry="29.92" fill="url(#spec)"/>
   </g>
 
   <rect x="92" y="92" width="840" height="840" rx="196" ry="196" fill="url(#sheen)"/>
