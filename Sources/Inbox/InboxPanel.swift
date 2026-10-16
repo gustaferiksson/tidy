@@ -97,7 +97,7 @@ struct InboxPanel: View {
         } label: {
             ZStack {
                 ProgressView().controlSize(.small).opacity(store.isRefreshing ? 1 : 0)
-                Image(systemName: "arrow.clockwise").font(.system(size: 16)).opacity(store.isRefreshing ? 0 : 1)
+                Image(systemName: "arrow.clockwise.circle").font(.system(size: 16)).opacity(store.isRefreshing ? 0 : 1)
             }
             .frame(width: 28, height: 28)
             .contentShape(Rectangle())

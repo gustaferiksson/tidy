@@ -5,11 +5,12 @@ struct StateGlyphView: View {
     let glyph: StateGlyph
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
+    @Environment(\.backgroundProminence) private var prominence
 
     var body: some View {
         Image(glyph.octicon.rawValue)
             .font(.system(size: 16))
-            .foregroundStyle(Self.color(for: glyph.tone, scheme: scheme, contrast: contrast))
+            .foregroundStyle(prominence == .increased ? .white : Self.color(for: glyph.tone, scheme: scheme, contrast: contrast))
             .frame(width: 20, height: 20)
             .help(glyph.label)
             .accessibilityLabel(glyph.label)

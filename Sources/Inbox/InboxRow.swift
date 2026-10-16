@@ -8,6 +8,7 @@ struct InboxRow: View {
     @Environment(InboxStore.self) private var store
     @Environment(PanelController.self) private var panel
     @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.backgroundProminence) private var prominence
     @State private var ageWidth: CGFloat = 0
 
     private var isHovered: Bool { panel.hoveredID == item.id }
@@ -16,7 +17,7 @@ struct InboxRow: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline, spacing: 0) {
             Circle()
-                .fill(item.isUnread ? Color.accentColor : .clear)
+                .fill(item.isUnread ? (prominence == .increased ? .white : Color.accentColor) : .clear)
                 .frame(width: 8, height: 8)
                 .frame(width: 12)
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
@@ -37,7 +38,7 @@ struct InboxRow: View {
                     Text(shortAge(of: item.thread.updatedAt, now: now))
                         .font(.subheadline)
                         .monospacedDigit()
-                        .foregroundStyle(.secondary)
+                        .foregroundStyle(prominence == .increased ? Color.white : .secondary)
                         .fixedSize()
                         .onGeometryChange(for: CGFloat.self, of: \.size.width) { ageWidth = $0 }
                         .opacity(isHovered ? 0 : 1)
@@ -49,7 +50,7 @@ struct InboxRow: View {
                         .layoutPriority(1)
                 }
                 .font(.subheadline)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(prominence == .increased ? Color.white : .secondary)
                 .lineLimit(1)
                 .redacted(reason: item.status == .loading ? .placeholder : [])
             }

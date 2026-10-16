@@ -47,7 +47,12 @@ struct InboxList: View {
                 return .handled
             }
             .onKeyPress(.return, phases: .down) { press in
-                guard !selected.isEmpty, selected.count <= Self.openLimit else { return .ignored }
+                if press.modifiers.isDisjoint(with: [.command, .shift, .control, .option]) {
+                    guard selected.count == 1, let id = selected.first?.id else { return .ignored }
+                    panel.quickLookID = id
+                    return .handled
+                }
+                guard press.modifiers.contains(.command), !selected.isEmpty, selected.count <= Self.openLimit else { return .ignored }
                 for item in selected where item.webURL.isGitHubWeb { NSWorkspace.shared.open(item.webURL) }
                 if !press.modifiers.contains(.option) { store.markRead(selected.map(\.id)) }
                 return .handled

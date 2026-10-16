@@ -39,7 +39,7 @@ Set in Settings › General › Menu Bar.
 - **Leading:** a segmented control with Unread and All.
 - **Trailing:** three buttons.
   - `line.3.horizontal.decrease.circle` opens a menu with Participating Only and a Repository submenu. The submenu is built locally from the repos in the list.
-  - `arrow.clockwise` refreshes. It turns into a spinner while a fetch runs.
+  - `arrow.clockwise.circle` refreshes. It turns into a spinner while a fetch runs.
   - `ellipsis.circle` opens a menu with Mark All as Read, Settings… (⌘,) and Quit Tidy (⌘Q).
 - While a filter is active, it shows as a removable capsule under the header.
 
@@ -199,7 +199,7 @@ With Increase Contrast on, Tidy uses the system colours instead (`.green`, `.pur
 Quick Look is the only detail view. It's pushed inside the panel with `NavigationStack` at the same fixed size, the way Control Center modules drill in. An expanding row can't hold a long Markdown body.
 
 **Opening and moving:**
-- A click opens a row (⌘-click and ⇧-click only extend the selection). Space opens the selected row.
+- A click opens a row (⌘-click and ⇧-click only extend the selection). Space or ↩ opens the selected row.
 - Space, Esc, ⌘[ or `chevron.backward` closes it.
 - ↑ and ↓ step through threads without leaving Quick Look.
 
@@ -212,18 +212,18 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 - Security threads list their alerts: package, severity capsule, summary and GHSA ID. Each one links out.
 
 **Bottom bar:**
-- Open on GitHub (↩)
+- Open on GitHub (↩ or ⌘↩, the same chord as in the list; ⌥↩ or ⌥⌘↩ opens without marking read)
 - Mark as Read
 - Done
 - An `ellipsis.circle` overflow menu with Copy Link, Mute Thread and Mute Repository. This puts every context-menu action in the main UI too.
 
 **Never marks read on its own:**
 - Viewing a thread in Quick Look doesn't mark it read, wherever Quick Look was opened from (including the banner's Quick Look action).
-- Only Mark as Read, Done or ↩ mark a thread read.
+- Only Mark as Read, Done or Open on GitHub mark a thread read.
 
 **Focus return:**
 - Before the panel opens, Tidy records `NSWorkspace.shared.frontmostApplication`, unless that app is Tidy itself.
-- When the panel closes, Tidy calls `.activate()` on that app, but only if Tidy is still frontmost. If the user clicked into another app, or ↩ handed focus to the browser, Tidy leaves focus alone.
+- When the panel closes, Tidy calls `.activate()` on that app, but only if Tidy is still frontmost. If the user clicked into another app, or Open on GitHub handed focus to the browser, Tidy leaves focus alone.
 
 **When the fetch fails:**
 - The preview shows "Couldn't load details" with a Retry button.
@@ -252,8 +252,9 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 |---|---|
 | ↑ ↓ | Move the selection. In Quick Look, step to the previous or next thread |
 | Space | Open or close Quick Look |
-| ↩ | Open on GitHub and mark read. Opening a thread means you're handling it, as in Mail. Does nothing with more than 10 rows selected |
-| ⌥↩ | Open on GitHub without marking read |
+| ↩ | Open Quick Look for the selected row, exactly like a click. Never marks read. Does nothing unless exactly one row is selected. In Quick Look: Open on GitHub and mark read |
+| ⌘↩ | Open on GitHub and mark read. Opening a thread means you're handling it, as in Mail. Does nothing with more than 10 rows selected |
+| ⌥⌘↩ | Open on GitHub without marking read (⌥↩ also works in Quick Look) |
 | E | Done. On a Done row: Move to Inbox |
 | ⇧I / ⇧⌘I | Mark as Read / Mark All as Read |
 | ⌘A / ⌘Z | Select all / Undo |
