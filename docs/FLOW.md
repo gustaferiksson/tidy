@@ -23,9 +23,9 @@ Set in Settings › General › Menu Bar.
 
 | Style | Unread > 0 | Unread = 0 |
 |---|---|---|
-| Icon + Unread Count (default) | `tray.full.fill` 3 | `tray` |
+| Icon + Unread Count (default) | `tray.badge` 3 | `tray` |
 | Count Only | 3 | `tray` (so the item is never empty) |
-| Icon Only | `tray.full.fill` | `tray` |
+| Icon Only | `tray.badge` | `tray` |
 
 - The count tops out at "99+".
 - It counts threads that are unread, not Done, and not hidden by a filter.
