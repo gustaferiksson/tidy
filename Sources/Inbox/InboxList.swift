@@ -14,7 +14,7 @@ struct InboxList: View {
 
     var body: some View {
         ScrollViewReader { proxy in
-            Group {
+            ZStack {
                 if items.isEmpty && store.done.isEmpty {
                     emptyState.frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
@@ -23,9 +23,45 @@ struct InboxList: View {
             }
             .overlay(alignment: .bottom) { toast(proxy: proxy) }
             .animation(.snappy, value: store.undoableChange?.id)
+            .focusable(interactions: .edit)
+            .focusEffectDisabled()
+            .focused($isFocused)
+            .task(id: panel.isOpen && panel.quickLookID == nil) {
+                guard panel.isOpen, panel.quickLookID == nil else { return }
+                // AppKit assigns the window's initial first responder after the view appears, overriding an immediate request.
+                try? await Task.sleep(for: .milliseconds(50))
+                guard !Task.isCancelled else { return }
+                isFocused = true
+            }
+            .onKeyPress(keys: [.upArrow, .downArrow]) { press in
+                guard press.modifiers.isDisjoint(with: [.shift, .command, .control, .option]) else { return .ignored }
+                let order = (items + (doneExpanded ? store.done : [])).map(\.id)
+                guard let next = steppedSelection(from: panel.selection, in: order, by: press.key == .upArrow ? -1 : 1) else { return .ignored }
+                panel.selection = [next]
+                proxy.scrollTo(next)
+                return .handled
+            }
+            .onKeyPress(.space) {
+                guard let id = selected.first?.id else { return .ignored }
+                panel.quickLookID = id
+                return .handled
+            }
+            .onKeyPress(.return, phases: .down) { press in
+                guard !selected.isEmpty, selected.count <= Self.openLimit else { return .ignored }
+                for item in selected where item.webURL.isGitHubWeb { NSWorkspace.shared.open(item.webURL) }
+                if !press.modifiers.contains(.option) { store.markRead(selected.map(\.id)) }
+                return .handled
+            }
+            .onKeyPress(characters: CharacterSet(charactersIn: "eEI")) { press in
+                guard !selected.isEmpty, press.modifiers.isDisjoint(with: [.command, .control, .option]) else { return .ignored }
+                if press.characters == "I" {
+                    store.markRead(selected.map(\.id))
+                } else {
+                    markDoneOrRestore(selected)
+                }
+                return .handled
+            }
         }
-        .onAppear { isFocused = true }
-        .onChange(of: panel.isOpen) { if panel.isOpen { isFocused = true } }
     }
 
     private var list: some View {
@@ -61,27 +97,6 @@ struct InboxList: View {
             .listStyle(.inset)
             .scrollContentBackground(.hidden)
             .contextMenu(forSelectionType: String.self) { ids in contextMenu(for: ids) }
-            .focused($isFocused)
-            .onKeyPress(.space) {
-                guard let id = selected.first?.id else { return .ignored }
-                panel.quickLookID = id
-                return .handled
-            }
-            .onKeyPress(.return, phases: .down) { press in
-                guard !selected.isEmpty, selected.count <= Self.openLimit else { return .ignored }
-                for item in selected where item.webURL.isGitHubWeb { NSWorkspace.shared.open(item.webURL) }
-                if !press.modifiers.contains(.option) { store.markRead(selected.map(\.id)) }
-                return .handled
-            }
-            .onKeyPress(characters: CharacterSet(charactersIn: "eEI")) { press in
-                guard !selected.isEmpty, press.modifiers.isDisjoint(with: [.command, .control, .option]) else { return .ignored }
-                if press.characters == "I" {
-                    store.markRead(selected.map(\.id))
-                } else {
-                    markDoneOrRestore(selected)
-                }
-                return .handled
-            }
         }
     }
 

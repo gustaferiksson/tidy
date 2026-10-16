@@ -45,7 +45,7 @@ struct QuickLookView: View {
             }
         }
         .toolbarVisibility(.hidden, for: .windowToolbar)
-        .focusable()
+        .focusable(interactions: .edit)
         .focusEffectDisabled()
         .focused($isFocused)
         .onAppear { isFocused = true }
@@ -167,8 +167,7 @@ struct QuickLookView: View {
     }
 
     private func step(by offset: Int) -> KeyPress.Result {
-        guard let index = order.firstIndex(where: { $0.id == id }), order.indices.contains(index + offset) else { return .handled }
-        let next = order[index + offset].id
+        guard let next = steppedSelection(from: [id], in: order.map(\.id), by: offset) else { return .handled }
         panel.selection = [next]
         panel.quickLookID = next
         return .handled
