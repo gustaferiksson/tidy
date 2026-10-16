@@ -1,17 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
     <linearGradient id="tile" x1="0.15" y1="0" x2="0.85" y2="1">
-      <stop offset="0" stop-color="#0b2e1e"/>
-      <stop offset="0.55" stop-color="#06180f"/>
-      <stop offset="1" stop-color="#020906"/>
+      <stop offset="0" stop-color="#46080e"/>
+      <stop offset="0.55" stop-color="#1c0408"/>
+      <stop offset="1" stop-color="#080103"/>
     </linearGradient>
     <radialGradient id="aura" cx="0.5" cy="0.5" r="0.58">
-      <stop offset="0" stop-color="#34d17a" stop-opacity="0.16"/>
-      <stop offset="1" stop-color="#34d17a" stop-opacity="0"/>
+      <stop offset="0" stop-color="#e3201b" stop-opacity="0.16"/>
+      <stop offset="1" stop-color="#e3201b" stop-opacity="0"/>
     </radialGradient>
     <linearGradient id="glyph" gradientUnits="userSpaceOnUse" x1="400" y1="220" x2="624" y2="820">
-      <stop offset="0" stop-color="#9af0b8"/>
-      <stop offset="1" stop-color="#16a34a"/>
+      <stop offset="0" stop-color="#ff4f4a"/>
+      <stop offset="1" stop-color="#b00c1e"/>
     </linearGradient>
     <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
       <stop offset="0" stop-color="#ffffff" stop-opacity="0.30"/>
