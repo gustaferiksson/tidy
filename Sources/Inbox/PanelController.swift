@@ -17,6 +17,7 @@ final class PanelController {
     @ObservationIgnored private var previousApp: NSRunningApplication?
     @ObservationIgnored private var activationObserver: NSObjectProtocol?
     @ObservationIgnored private var fallbackWindow: NSWindow?
+    @ObservationIgnored weak var panelWindow: NSWindow?
 
     init(store: InboxStore, updater: AppUpdater) {
         self.store = store
@@ -66,6 +67,24 @@ final class PanelController {
             return
         }
         button.performClick(nil)
+    }
+
+    func showSettings(tab: SettingsTab? = nil) {
+        if let tab { AppSettings.shared.settingsTab = tab }
+        previousApp = nil
+        NSApp.activate()
+        panelWindow?.close()
+        if let settings = NSApp.windows.first(where: { $0.identifier?.rawValue.contains("Settings") == true }) {
+            settings.collectionBehavior.insert(.moveToActiveSpace)
+            if settings.isMiniaturized { settings.deminiaturize(nil) }
+            settings.makeKeyAndOrderFront(nil)
+            return
+        }
+        // SwiftUI rejects showSettingsWindow: sent from code ("use SettingsLink") but honours its own app-menu item.
+        guard let menu = NSApp.mainMenu?.items.first?.submenu,
+              let index = menu.items.firstIndex(where: { $0.keyEquivalent == "," })
+        else { return }
+        menu.performActionForItem(at: index)
     }
 
     private func showFallbackWindow() {
@@ -130,6 +149,7 @@ struct PanelWindowObserver: NSViewRepresentable {
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
             observers.forEach(NotificationCenter.default.removeObserver)
+            panel.panelWindow = window
             guard let window else {
                 observers = []
                 return

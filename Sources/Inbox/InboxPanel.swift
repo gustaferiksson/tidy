@@ -7,7 +7,6 @@ struct InboxPanel: View {
     @Environment(InboxStore.self) private var store
     @Environment(PanelController.self) private var panel
     @Environment(AppUpdater.self) private var updater
-    @Environment(\.openSettings) private var openSettings
     @AppStorage("showsAllThreads") private var showsAll = false
 
     var body: some View {
@@ -109,7 +108,7 @@ struct InboxPanel: View {
                 Button(updater.status == .checking ? "Checking for Updates…" : "Check for Updates…") { updater.check(.manual) }
                     .disabled(updater.isBusy)
             }
-            SettingsLink { Text("Settings…") }
+            Button("Settings…") { panel.showSettings() }
             Divider()
             Button("Quit Tidy") { NSApp.terminate(nil) }
         } label: {
@@ -145,20 +144,14 @@ struct InboxPanel: View {
             } description: {
                 Text("Tidy reads your notifications with a personal access token (classic).")
             } actions: {
-                Button("Connect…") {
-                    AppSettings.shared.settingsTab = .github
-                    openSettings()
-                }
+                Button("Connect…") { panel.showSettings(tab: .github) }
                     .buttonStyle(.borderedProminent)
             }
         } else if store.issue == .unauthorized {
             ContentUnavailableView {
                 Label("Your GitHub token is no longer valid", systemImage: "exclamationmark.triangle")
             } actions: {
-                Button("Update Token…") {
-                    AppSettings.shared.settingsTab = .github
-                    openSettings()
-                }
+                Button("Update Token…") { panel.showSettings(tab: .github) }
                     .buttonStyle(.borderedProminent)
             }
         } else if store.issue == .missingScope {
@@ -280,7 +273,7 @@ struct InboxPanel: View {
             Button("Refresh", action: store.pollNow)
                 .keyboardShortcut("r")
                 .disabled(!store.isSignedIn || store.isRefreshing)
-            SettingsLink { Text("Settings…") }.keyboardShortcut(",")
+            Button("Settings…") { panel.showSettings() }.keyboardShortcut(",")
             Button("Quit Tidy") { NSApp.terminate(nil) }.keyboardShortcut("q")
             Button("Back") { panel.quickLookID = nil }.keyboardShortcut("[")
         }
