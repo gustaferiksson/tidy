@@ -86,7 +86,9 @@ struct InboxPanel: View {
             .disabled(store.repositories.isEmpty)
         } label: {
             Image(systemName: store.scope.isActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                .font(.system(size: 16))
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
                 .frame(width: 28, height: 28)
         }
         .fixedSize()
@@ -97,7 +99,7 @@ struct InboxPanel: View {
         } label: {
             ZStack {
                 ProgressView().controlSize(.small).opacity(store.isRefreshing ? 1 : 0)
-                Image(systemName: "arrow.clockwise.circle").font(.system(size: 16)).opacity(store.isRefreshing ? 0 : 1)
+                Image(systemName: "arrow.clockwise.circle").resizable().scaledToFit().frame(width: 16, height: 16).opacity(store.isRefreshing ? 0 : 1)
             }
             .frame(width: 28, height: 28)
             .contentShape(Rectangle())
@@ -126,7 +128,9 @@ struct InboxPanel: View {
             Button("Quit Tidy") { NSApp.terminate(nil) }
         } label: {
             Image(systemName: "ellipsis.circle")
-                .font(.system(size: 16))
+                .resizable()
+                .scaledToFit()
+                .frame(width: 16, height: 16)
                 .frame(width: 28, height: 28)
         }
         .fixedSize()
