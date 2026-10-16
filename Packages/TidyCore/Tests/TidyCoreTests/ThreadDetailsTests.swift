@@ -36,7 +36,7 @@ struct ThreadDetailsTests {
     #expect([pull.additions, pull.deletions, pull.changedFiles] as [Int] == [120, 14, 7])
     #expect(pull.hasConflicts)
     #expect(pull.reviewDecision == .changesRequested)
-    #expect(pull.reviewers.map(\.user.login) == ["octocat", "hubot", "lisa", "design"])
+    #expect(pull.reviewers.map(\.user.login) == ["octocat", "hubot", "lisa", "design"], "the author's own review is not a reviewer")
     #expect(pull.reviewers.map(\.state) == [.approved, .changesRequested, .requested, .requested])
     let checks = try #require(pull.checks)
     #expect(checks.state == .failure)
@@ -203,5 +203,4 @@ struct ThreadDetailsStoreTests {
     let item = try #require(store.inbox.first { $0.id == "101" })
     store.disconnect()
     #expect(store.threadDetails(for: item) == nil)
-  }
-}
+  }}

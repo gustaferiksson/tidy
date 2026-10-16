@@ -20,7 +20,8 @@
         "latestReviews": {"nodes": [
           {"state": "APPROVED", "author": {"login": "octocat", "avatarUrl": null}},
           {"state": "CHANGES_REQUESTED", "author": {"login": "hubot", "avatarUrl": null}},
-          {"state": "COMMENTED", "author": {"login": "lisa", "avatarUrl": null}}
+          {"state": "COMMENTED", "author": {"login": "lisa", "avatarUrl": null}},
+          {"state": "COMMENTED", "author": {"login": "mona", "avatarUrl": null}}
         ]},
         "reviewRequests": {"nodes": [
           {"requestedReviewer": {"login": "lisa", "avatarUrl": null}},

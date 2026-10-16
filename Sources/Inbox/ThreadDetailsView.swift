@@ -60,8 +60,8 @@ struct ThreadDetailsView: View {
                         }
                         .font(.system(.subheadline, design: .monospaced))
                         HStack(spacing: 4) {
-                            Text("+\(pull.additions)").foregroundStyle(color(.green))
-                            Text("−\(pull.deletions)").foregroundStyle(color(.red))
+                            Text("+\(pull.additions)").foregroundStyle(StateGlyphView.color(for: .green, scheme: scheme, contrast: contrast))
+                            Text("−\(pull.deletions)").foregroundStyle(StateGlyphView.color(for: .red, scheme: scheme, contrast: contrast))
                             Text("· \(pull.changedFiles) \(pull.changedFiles == 1 ? "file" : "files")").foregroundStyle(.secondary)
                         }
                         .font(.subheadline.monospacedDigit())
@@ -94,7 +94,7 @@ struct ThreadDetailsView: View {
                         Label {
                             Text("Conflicts with \(pull.baseBranch)")
                         } icon: {
-                            Image(Octicon.alert.rawValue).foregroundStyle(color(.orange))
+                            Image(Octicon.alert.rawValue).foregroundStyle(StateGlyphView.color(for: .orange, scheme: scheme, contrast: contrast))
                         }
                         .font(.subheadline)
                     }
@@ -149,13 +149,9 @@ struct ThreadDetailsView: View {
         return Label {
             Text(checks.summary).fixedSize(horizontal: false, vertical: true)
         } icon: {
-            Image(octicon.rawValue).foregroundStyle(color(tone))
+            Image(octicon.rawValue).foregroundStyle(StateGlyphView.color(for: tone, scheme: scheme, contrast: contrast))
         }
         .font(.subheadline)
-    }
-
-    private func color(_ tone: StateTone) -> Color {
-        StateGlyphView.color(for: tone, scheme: scheme, contrast: contrast)
     }
 }
 

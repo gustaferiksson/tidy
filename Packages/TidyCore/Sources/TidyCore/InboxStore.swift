@@ -220,10 +220,14 @@ public final class InboxStore {
   }
 
   public func loadThreadDetails(for id: String) {
-    guard let client, let item = inbox.first(where: { $0.id == id }), ThreadDetails.isSupported(item.thread) else { return }
+    guard let item = inbox.first(where: { $0.id == id }), ThreadDetails.isSupported(item.thread) else { return }
     if let status = threadDetails(for: item), status != .failed { return }
     let updatedAt = item.thread.updatedAt
     threadDetailsCache = threadDetailsCache.filter { key, _ in inbox.contains { $0.id == key } }
+    guard let client else {
+      threadDetailsCache[id] = (updatedAt, .failed)
+      return
+    }
     threadDetailsCache[id] = (updatedAt, .loading)
     Task {
       let status: ThreadDetailsStatus

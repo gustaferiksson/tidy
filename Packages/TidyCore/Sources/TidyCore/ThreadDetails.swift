@@ -407,7 +407,8 @@ private struct SubjectNode: Decodable {
     let requested = reviewRequests?.items.compactMap { $0.requestedReviewer?.user } ?? []
     let reviewed = latestReviews?.items.compactMap { review -> Reviewer? in
       guard let user = review.author?.user, let state = ReviewState(apiValue: review.state) else { return nil }
-      return requested.contains { $0.login == user.login } ? nil : Reviewer(user: user, state: state)
+      let isRequested = requested.contains { $0.login == user.login }
+      return isRequested || user.login == author?.login ? nil : Reviewer(user: user, state: state)
     }
     let decisions: [String: ReviewDecision] = [
       "APPROVED": .approved, "CHANGES_REQUESTED": .changesRequested, "REVIEW_REQUIRED": .reviewRequired,
