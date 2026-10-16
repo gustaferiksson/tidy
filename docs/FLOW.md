@@ -47,7 +47,8 @@ Set in Settings › General › Menu Bar.
 - One flat list, newest `updated_at` first.
 - Each row names its repo. The list isn't grouped by repo, because Mail and Notification Center triage by recency, and section headers cost too much height in a 560 pt panel. The repo filter covers narrowing down to one repo.
 
-**Row (at least 52 pt, padding 12 pt horizontal and 8 pt vertical):**
+**Row (at least 52 pt, padding 4 pt trailing and 8 pt vertical):**
+- The age and the hover buttons sit near the trailing edge, aligned with the header's trailing button and the footer. The scroller always overlays, so it never reserves a gutter.
 - A 12 pt leading gutter holds an 8 pt accent-colour dot when the thread is unread. **No coloured left bars.**
 - A 20 pt column holds the 16 pt state glyph (§5).
 - The title uses `.body`, wraps to at most 2 lines, and truncates in the middle.
@@ -69,6 +70,7 @@ Set in Settings › General › Menu Bar.
 
 **Footer (28 pt, secondary colour):** shows one of these:
 - `Updated 1m ago`, or a status from §8.
+- `Marked as done · Undo` while a change can be undone (see §4). Only a failure outranks it.
 - `4 hidden by filters · Show`. This link is the only way to reveal hidden items.
 - `Showing the last 14 days` once the 200-thread cap is reached.
 
@@ -100,7 +102,7 @@ Done replaces "clear" and "clear all". There's a single path for each action.
 
 **Optimistic updates and undo:**
 - The UI changes at once. The GitHub call is sent 5 s later.
-- During that window, a glass capsule toast appears above the footer (`.glassEffect`, 32 pt): "Marked 3 as done · Undo". ⌘Z also undoes.
+- During that window, the footer reads "Marked as done · Undo" ("Marked 3 as done" for a batch) in place of "Updated…", as in Mail. There's no floating toast, so repeated actions just update the text. ⌘Z also undoes.
 - Undo scrolls to the restored rows and selects them.
 - The window is 5 s because GitHub has no "mark unread" call, so a read can't be reversed once it's sent.
 - Closing the panel sends whatever is pending right away. The queue is saved to disk.

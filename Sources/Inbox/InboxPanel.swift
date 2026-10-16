@@ -69,7 +69,8 @@ struct InboxPanel: View {
         .menuStyle(.button)
         .menuIndicator(.hidden)
         .buttonStyle(.borderless)
-        .padding(.horizontal, 12)
+        .padding(.leading, 12)
+        .padding(.trailing, 16)
         .frame(height: 44)
     }
 
@@ -211,7 +212,8 @@ struct InboxPanel: View {
         .font(.footnote)
         .foregroundStyle(.secondary)
         .lineLimit(1)
-        .padding(.horizontal, 12)
+        .padding(.leading, 12)
+        .padding(.trailing, 16)
         .frame(height: 28)
     }
 
@@ -219,6 +221,11 @@ struct InboxPanel: View {
         if let failure = store.failure {
             Text(failure.message)
             Button("Retry", action: store.retryFailed).buttonStyle(.link)
+        } else if let change = store.undoableChange {
+            Text(change.items.count == 1 ? change.message.replacingOccurrences(of: " 1 ", with: " ") : change.message)
+            Button("Undo", action: undo)
+                .buttonStyle(.link)
+                .keyboardShortcut("z", modifiers: .command)
         } else if store.issue == .offline {
             Label(store.lastSync.map { "Offline · updated \($0.formatted(date: .omitted, time: .shortened))" } ?? "Offline", systemImage: "wifi.slash")
         } else if case .rateLimited(let resumesAt) = store.issue {
@@ -243,6 +250,14 @@ struct InboxPanel: View {
                 Text(age == "now" ? "Updated just now" : "Updated \(age) ago")
             }
         }
+    }
+
+    private func undo() {
+        let ids = store.undo()
+        panel.selection = Set(ids)
+        guard let first = ids.first else { return }
+        if store.done.contains(where: { $0.id == first }) { doneExpanded = true }
+        panel.revealID = first
     }
 
     private var shortcuts: some View {

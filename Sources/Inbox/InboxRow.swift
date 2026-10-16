@@ -56,7 +56,7 @@ struct InboxRow: View {
             }
         }
         .padding(.vertical, 8)
-        .padding(.trailing, 12)
+        .padding(.trailing, 4)
         .frame(minHeight: 52)
         .contentShape(Rectangle())
         .simultaneousGesture(TapGesture().onEnded {
@@ -68,10 +68,10 @@ struct InboxRow: View {
             if isHovered {
                 hoverButtons
                     .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
-                    .padding(.trailing, 8)
                     .transition(.opacity)
             }
         }
+        .background(OverlayScrollerStyle())
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .onHover { hovering in
             if hovering {
@@ -144,6 +144,18 @@ struct InboxRow: View {
         .pointerStyle(.link)
         .help(title)
         .accessibilityLabel(title)
+    }
+}
+
+private struct OverlayScrollerStyle: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { ScrollerStyleView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class ScrollerStyleView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            enclosingScrollView?.scrollerStyle = .overlay
+        }
     }
 }
 

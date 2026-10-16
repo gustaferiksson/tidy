@@ -21,8 +21,11 @@ struct InboxList: View {
                     list
                 }
             }
-            .overlay(alignment: .bottom) { toast(proxy: proxy) }
-            .animation(.snappy, value: store.undoableChange?.id)
+            .onChange(of: panel.revealID) { _, id in
+                guard let id else { return }
+                withAnimation { proxy.scrollTo(id) }
+                panel.revealID = nil
+            }
             .focusable(interactions: .edit)
             .focusEffectDisabled()
             .focused($isFocused)
@@ -133,7 +136,7 @@ struct InboxList: View {
                 .font(.subheadline)
         }
         .padding(.leading, 12)
-        .padding(.trailing, 12)
+        .padding(.trailing, 4)
         .frame(height: 36)
     }
 
@@ -153,32 +156,6 @@ struct InboxList: View {
         } else {
             ContentUnavailableView("You're all caught up", systemImage: "checkmark.circle")
         }
-    }
-
-    @ViewBuilder private func toast(proxy: ScrollViewProxy) -> some View {
-        if let change = store.undoableChange {
-            HStack(spacing: 8) {
-                Text(change.message)
-                Button("Undo") { undo(proxy: proxy) }
-                    .buttonStyle(.borderless)
-                    .fontWeight(.semibold)
-                    .keyboardShortcut("z", modifiers: .command)
-            }
-            .font(.callout)
-            .padding(.horizontal, 16)
-            .frame(height: 32)
-            .glassEffect(.regular, in: .capsule)
-            .padding(.bottom, 12)
-            .transition(.move(edge: .bottom).combined(with: .opacity))
-        }
-    }
-
-    private func undo(proxy: ScrollViewProxy) {
-        let ids = store.undo()
-        panel.selection = Set(ids)
-        guard let first = ids.first else { return }
-        if store.done.contains(where: { $0.id == first }) { doneExpanded = true }
-        withAnimation { proxy.scrollTo(first) }
     }
 
     private func markDoneOrRestore(_ targets: [InboxItem]) {
