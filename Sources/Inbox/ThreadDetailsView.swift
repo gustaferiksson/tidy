@@ -168,10 +168,8 @@ private struct SectionLabel: View {
 
 private struct DescriptionSection: View {
     let details: ThreadDetails
-    @State private var isExpanded = false
 
     var body: some View {
-        let isLong = details.body.count > 600 || details.body.count { $0.isNewline } > 12
         VStack(alignment: .leading, spacing: 8) {
             CommentHeader(author: details.author, action: "opened", date: details.createdAt)
             if details.body.isEmpty {
@@ -179,16 +177,6 @@ private struct DescriptionSection: View {
             } else {
                 MarkdownView(source: details.body)
                     .fixedSize(horizontal: false, vertical: true)
-                    .frame(maxHeight: isLong && !isExpanded ? 160 : nil, alignment: .top)
-                    .clipped()
-                    .mask {
-                        LinearGradient(stops: [.init(color: .black, location: 0.7), .init(color: isLong && !isExpanded ? .clear : .black, location: 1)], startPoint: .top, endPoint: .bottom)
-                    }
-                if isLong {
-                    Button(isExpanded ? "Show Less" : "Show More") { isExpanded.toggle() }
-                        .buttonStyle(.link)
-                        .font(.subheadline)
-                }
             }
         }
     }
