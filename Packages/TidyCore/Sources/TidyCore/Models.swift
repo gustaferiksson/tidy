@@ -236,25 +236,26 @@ public struct Reason: RawRepresentable, Codable, Hashable, Sendable, Comparable 
     .stateChange, .subscribed, .ciActivity, .invitation, .memberFeatureRequested,
   ]
 
+  private static let titles: [Reason: String] = [
+    .approvalRequested: "Approval requested",
+    .assign: "Assigned",
+    .author: "Author",
+    .comment: "Comment",
+    .ciActivity: "CI activity",
+    .invitation: "Invitation",
+    .manual: "Subscribed manually",
+    .memberFeatureRequested: "Feature requested",
+    .mention: "Mentioned",
+    .reviewRequested: "Review requested",
+    .securityAlert: "Security alert",
+    .securityAdvisoryCredit: "Advisory credit",
+    .stateChange: "State changed",
+    .subscribed: "Watching",
+    .teamMention: "Team mentioned",
+  ]
+
   public var title: String {
-    let known: [Reason: String] = [
-      .approvalRequested: "Approval requested",
-      .assign: "Assigned",
-      .author: "Author",
-      .comment: "Comment",
-      .ciActivity: "CI activity",
-      .invitation: "Invitation",
-      .manual: "Subscribed manually",
-      .memberFeatureRequested: "Feature requested",
-      .mention: "Mentioned",
-      .reviewRequested: "Review requested",
-      .securityAlert: "Security alert",
-      .securityAdvisoryCredit: "Advisory credit",
-      .stateChange: "State changed",
-      .subscribed: "Watching",
-      .teamMention: "Team mentioned",
-    ]
-    if let title = known[self] { return title }
+    if let title = Self.titles[self] { return title }
     let spaced = rawValue.replacingOccurrences(of: "_", with: " ")
     return spaced.prefix(1).uppercased() + spaced.dropFirst()
   }

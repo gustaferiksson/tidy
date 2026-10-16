@@ -188,7 +188,8 @@ public final class InboxStore {
       lastModified = fetch.lastModified
       pollInterval = fetch.pollInterval
       consecutiveFailures = 0
-      issue = nil
+      if case .ssoRequired = issue {} else { issue = nil }
+      for change in pending where commitTasks[change.id] == nil { schedule(change, after: .zero) }
       lastSync = now()
       hasLoaded = true
       if let threads = fetch.threads {
@@ -409,6 +410,11 @@ public final class InboxStore {
     staleDetails[thread.id] = nil
     switch result {
     case .success(let details):
+      if case .ssoRequired(let organization, _) = issue,
+        organization?.caseInsensitiveCompare(thread.repository.owner.login) == .orderedSame
+      {
+        issue = nil
+      }
       setStatus(.loaded(details), for: thread)
     case .failure(let error):
       if case .ssoRequired(let organization, let url) = error as? GitHubError {

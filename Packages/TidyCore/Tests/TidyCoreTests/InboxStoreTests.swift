@@ -260,6 +260,20 @@ struct InboxStoreTests {
     #expect(store.inbox.first { $0.id == "101" }?.isUnread == false)
   }
 
+  @Test func offlineCommitIsResentAfterNextSuccessfulPoll() async throws {
+    server.on("PATCH", "/notifications/threads/101", respond: .offline)
+    let store = makeStore()
+    await store.refresh()
+    store.markRead(["101"])
+    await store.flushPending()
+    #expect(store.pending.count == 1)
+    server.on("PATCH", "/notifications/threads/101", respond: StubResponse(status: 205))
+    await store.refresh()
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(store.pending.isEmpty)
+    #expect(requests("PATCH") == ["/notifications/threads/101", "/notifications/threads/101"])
+  }
+
   @Test func pendingChangesSurviveAPoll() async {
     let store = makeStore()
     await store.refresh()
