@@ -19,6 +19,7 @@ enum SnapshotCapture {
     @discardableResult
     static func write(_ window: NSWindow, to output: URL) async -> Bool {
         try? await Task.sleep(for: .seconds(1.5))
+        guard !NSScreen.screens.contains(where: { $0.frame.intersects(window.frame) }) else { exit(1) }
         guard let image = image(of: window),
               let png = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
         else { return false }

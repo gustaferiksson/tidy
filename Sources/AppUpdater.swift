@@ -123,6 +123,7 @@ final class AppUpdater {
         panel.informativeText = "Tidy will download it, replace itself and relaunch."
         panel.addButton(withTitle: "Install")
         panel.addButton(withTitle: "Later")
+        NSApp.activate()
         guard panel.runModal() == .alertFirstButtonReturn else { return }
         installAndRelaunch()
     }
