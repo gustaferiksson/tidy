@@ -1,31 +1,32 @@
+import Foundation
 import Testing
 
 @testable import TidyCore
 
 struct StateGlyphTests {
   @Test(arguments: [
-    (SubjectKind.pullRequest, SubjectState?.some(.open), "arrow.triangle.pull", StateTone.green),
-    (.pullRequest, .draft, "arrow.triangle.pull", .grey),
-    (.pullRequest, .closed, "arrow.triangle.pull", .red),
-    (.pullRequest, .merged, "arrow.triangle.merge", .purple),
-    (.issue, .open, "smallcircle.filled.circle", .green),
-    (.issue, .closed, "checkmark.circle", .purple),
-    (.issue, .notPlanned, "circle.slash", .grey),
-    (.discussion, .open, "bubble.left.and.bubble.right", .green),
-    (.discussion, .answered, "checkmark.bubble", .purple),
-    (.release, nil, "tag", .grey),
-    (.commit, nil, "circle.and.line.horizontal", .grey),
-    (.checkSuite, .failed, "xmark.circle", .red),
-    (.workflowRun, .succeeded, "checkmark.circle", .green),
-    (.checkSuite, .cancelled, "circle.slash", .grey),
-    (.secretScanningAlert, .open, "key.viewfinder", .red),
-    (.securityAdvisoryCredit, nil, "checkmark.seal", .purple),
-    (.repositoryInvitation, nil, "person.badge.plus", .grey),
-    (.unknown("Thing"), nil, "bell", .grey),
+    (SubjectKind.pullRequest, SubjectState?.some(.open), Octicon.gitPullRequest, StateTone.green),
+    (.pullRequest, .draft, .gitPullRequestDraft, .grey),
+    (.pullRequest, .closed, .gitPullRequestClosed, .red),
+    (.pullRequest, .merged, .gitMerge, .purple),
+    (.issue, .open, .issueOpened, .green),
+    (.issue, .closed, .issueClosed, .purple),
+    (.issue, .notPlanned, .skip, .grey),
+    (.discussion, .open, .commentDiscussion, .green),
+    (.discussion, .answered, .discussionClosed, .purple),
+    (.release, nil, .tag, .grey),
+    (.commit, nil, .gitCommit, .grey),
+    (.checkSuite, .failed, .xCircle, .red),
+    (.workflowRun, .succeeded, .checkCircle, .green),
+    (.checkSuite, .cancelled, .stop, .grey),
+    (.secretScanningAlert, .open, .key, .red),
+    (.securityAdvisoryCredit, nil, .shieldCheck, .purple),
+    (.repositoryInvitation, nil, .personAdd, .grey),
+    (.unknown("Thing"), nil, .bell, .grey),
   ])
-  func matchesFlowTable(kind: SubjectKind, state: SubjectState?, symbol: String, tone: StateTone) {
+  func matchesFlowTable(kind: SubjectKind, state: SubjectState?, octicon: Octicon, tone: StateTone) {
     let glyph = StateGlyph(kind: kind, state: state)
-    #expect(glyph.symbol == symbol)
+    #expect(glyph.octicon == octicon)
     #expect(glyph.tone == tone)
   }
 
@@ -34,7 +35,7 @@ struct StateGlyphTests {
   ])
   func dependabotUsesHighestSeverity(severity: Severity?, tone: StateTone) {
     let glyph = StateGlyph(kind: .dependabotAlerts, state: .open, severity: severity)
-    #expect(glyph.symbol == "exclamationmark.shield.fill")
+    #expect(glyph.octicon == .dependabot)
     #expect(glyph.tone == tone)
     #expect(StateGlyph(kind: .repositoryAdvisory, state: .open, severity: severity).tone == tone)
   }
@@ -42,10 +43,18 @@ struct StateGlyphTests {
   @Test(arguments: [
     SubjectKind.pullRequest, .issue, .discussion, .dependabotAlerts, .secretScanningAlert, .repositoryAdvisory,
   ])
-  func loadingOrFailedStateIsBaseSymbolInGrey(kind: SubjectKind) {
+  func loadingOrFailedStateIsBaseOcticonInGrey(kind: SubjectKind) {
     let glyph = StateGlyph(kind: kind, state: nil)
     #expect(glyph.tone == .grey)
-    #expect(glyph.symbol == StateGlyph.baseSymbol(for: kind))
+    #expect(glyph.octicon == StateGlyph.baseOcticon(for: kind))
+  }
+
+  @Test(arguments: Octicon.allCases)
+  func everyOcticonHasASymbolInTheAppCatalog(octicon: Octicon) {
+    let symbolset = URL(filePath: #filePath)
+      .deletingLastPathComponent()
+      .appending(path: "../../../../Resources/Assets.xcassets/Octicons/\(octicon.rawValue).symbolset/\(octicon.rawValue).svg")
+    #expect(FileManager.default.fileExists(atPath: symbolset.standardizedFileURL.path))
   }
 
   @Test func labelsNameKindAndState() {

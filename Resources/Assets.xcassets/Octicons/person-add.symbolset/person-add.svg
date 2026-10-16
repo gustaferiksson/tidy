@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="3300" height="2200">
+ <g id="Notes">
+  <rect height="2200" id="artboard" style="fill:white;opacity:1" width="3300" x="0" y="0"/>
+  <text id="template-version" style="stroke:none;fill:black;font-family:sans-serif;font-size:13;text-anchor:end;" transform="matrix(1 0 0 1 3036 1933)">Template v.4.0</text>
+  <text id="descriptive-name" style="stroke:none;fill:black;font-family:sans-serif;font-size:13;text-anchor:end;" transform="matrix(1 0 0 1 3036 1969)">Octicon person-add (MIT, GitHub Inc.)</text>
+ </g>
+ <g id="Guides">
+  <line id="Baseline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="696" y2="696"/>
+  <line id="Capline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="625.541" y2="625.541"/>
+  <line id="Baseline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1126" y2="1126"/>
+  <line id="Capline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1055.541" y2="1055.541"/>
+  <line id="Baseline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1556" y2="1556"/>
+  <line id="Capline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1485.541" y2="1485.541"/>
+  <line id="left-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="513.211" x2="513.211" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="606.211" x2="606.211" y1="600.785" y2="720.121"/>
+  <line id="left-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1403.34" x2="1403.34" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1496.34" x2="1496.34" y1="600.785" y2="720.121"/>
+  <line id="left-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2886.9" x2="2886.9" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2979.9" x2="2979.9" y1="600.785" y2="720.121"/>
+ </g>
+ <g id="Symbols">
+  <g id="Ultralight-S" transform="matrix(1 0 0 1 513.211 696)">
+   <path d="M 46.0063 -32.5237 h -0.0049 a 27.2945 27.2945 0 0 1 15.3063 23.0038 3.7031 3.7031 0 1 1 -7.3964 0.4246 A 19.7994 19.7994 0 0 0 34.1562 -27.8233 a 19.7994 19.7994 0 0 0 -19.7549 18.7279 3.7031 3.7031 0 1 1 -7.3964 -0.4197 27.2896 27.2896 0 0 1 15.3063 -23.0087 17.2812 17.2812 0 1 1 23.6951 0 Z M 72.4219 -74.7295 a 3.7031 3.7031 0 0 1 3.7031 3.7031 V -64.8545 h 6.1719 a 3.7031 3.7031 0 0 1 0 7.4062 H 76.125 v 6.1719 a 3.7031 3.7031 0 0 1 -7.4062 0 V -57.4483 h -6.1719 a 3.7031 3.7031 0 0 1 0 -7.4062 h 6.1719 V -71.0264 a 3.7031 3.7031 0 0 1 3.7031 -3.7031 Z M 34.1562 -54.9795 a 9.875 9.875 0 1 0 -0.0049 19.7451 A 9.875 9.875 0 0 0 34.1562 -54.9795 Z"/>
+  </g>
+  <g id="Regular-S" transform="matrix(1 0 0 1 1403.34 696)">
+   <path d="M 46.0063 -32.5237 h -0.0049 a 27.2945 27.2945 0 0 1 15.3063 23.0038 3.7031 3.7031 0 1 1 -7.3964 0.4246 A 19.7994 19.7994 0 0 0 34.1562 -27.8233 a 19.7994 19.7994 0 0 0 -19.7549 18.7279 3.7031 3.7031 0 1 1 -7.3964 -0.4197 27.2896 27.2896 0 0 1 15.3063 -23.0087 17.2812 17.2812 0 1 1 23.6951 0 Z M 72.4219 -74.7295 a 3.7031 3.7031 0 0 1 3.7031 3.7031 V -64.8545 h 6.1719 a 3.7031 3.7031 0 0 1 0 7.4062 H 76.125 v 6.1719 a 3.7031 3.7031 0 0 1 -7.4062 0 V -57.4483 h -6.1719 a 3.7031 3.7031 0 0 1 0 -7.4062 h 6.1719 V -71.0264 a 3.7031 3.7031 0 0 1 3.7031 -3.7031 Z M 34.1562 -54.9795 a 9.875 9.875 0 1 0 -0.0049 19.7451 A 9.875 9.875 0 0 0 34.1562 -54.9795 Z"/>
+  </g>
+  <g id="Black-S" transform="matrix(1 0 0 1 2886.9 696)">
+   <path d="M 46.0063 -32.5237 h -0.0049 a 27.2945 27.2945 0 0 1 15.3063 23.0038 3.7031 3.7031 0 1 1 -7.3964 0.4246 A 19.7994 19.7994 0 0 0 34.1562 -27.8233 a 19.7994 19.7994 0 0 0 -19.7549 18.7279 3.7031 3.7031 0 1 1 -7.3964 -0.4197 27.2896 27.2896 0 0 1 15.3063 -23.0087 17.2812 17.2812 0 1 1 23.6951 0 Z M 72.4219 -74.7295 a 3.7031 3.7031 0 0 1 3.7031 3.7031 V -64.8545 h 6.1719 a 3.7031 3.7031 0 0 1 0 7.4062 H 76.125 v 6.1719 a 3.7031 3.7031 0 0 1 -7.4062 0 V -57.4483 h -6.1719 a 3.7031 3.7031 0 0 1 0 -7.4062 h 6.1719 V -71.0264 a 3.7031 3.7031 0 0 1 3.7031 -3.7031 Z M 34.1562 -54.9795 a 9.875 9.875 0 1 0 -0.0049 19.7451 A 9.875 9.875 0 0 0 34.1562 -54.9795 Z"/>
+  </g>
+ </g>
+</svg>

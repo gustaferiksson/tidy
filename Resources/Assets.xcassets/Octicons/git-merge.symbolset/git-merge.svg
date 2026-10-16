@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="3300" height="2200">
+ <g id="Notes">
+  <rect height="2200" id="artboard" style="fill:white;opacity:1" width="3300" x="0" y="0"/>
+  <text id="template-version" style="stroke:none;fill:black;font-family:sans-serif;font-size:13;text-anchor:end;" transform="matrix(1 0 0 1 3036 1933)">Template v.4.0</text>
+  <text id="descriptive-name" style="stroke:none;fill:black;font-family:sans-serif;font-size:13;text-anchor:end;" transform="matrix(1 0 0 1 3036 1969)">Octicon git-merge (MIT, GitHub Inc.)</text>
+ </g>
+ <g id="Guides">
+  <line id="Baseline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="696" y2="696"/>
+  <line id="Capline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="625.541" y2="625.541"/>
+  <line id="Baseline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1126" y2="1126"/>
+  <line id="Capline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1055.541" y2="1055.541"/>
+  <line id="Baseline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1556" y2="1556"/>
+  <line id="Capline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1485.541" y2="1485.541"/>
+  <line id="left-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="513.211" x2="513.211" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="606.211" x2="606.211" y1="600.785" y2="720.121"/>
+  <line id="left-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1403.34" x2="1403.34" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1496.34" x2="1496.34" y1="600.785" y2="720.121"/>
+  <line id="left-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2886.9" x2="2886.9" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2979.9" x2="2979.9" y1="600.785" y2="720.121"/>
+ </g>
+ <g id="Symbols">
+  <g id="Ultralight-S" transform="matrix(1 0 0 1 513.211 696)">
+   <path d="M 33.9094 -49.2816 A 20.9844 20.9844 0 0 0 52.6719 -37.6983 h 6.8039 a 11.1143 11.1143 0 1 1 0 7.4062 H 52.6719 A 28.3116 28.3116 0 0 1 31.6875 -39.5597 v 17.3059 a 11.1094 11.1094 0 1 1 -7.4062 0 V -48.2053 a 11.1094 11.1094 0 1 1 9.6281 -1.0764 Z M 27.9844 -8.0733 a 3.7031 3.7031 0 1 0 0 -7.4062 3.7031 3.7031 0 0 0 0 7.4062 Z m 41.9688 -22.2188 a 3.7031 3.7031 0 1 0 0 -7.4062 3.7031 3.7031 0 0 0 0 7.4062 Z M 31.6875 -58.6826 a 3.7031 3.7031 0 1 0 0 0.0247 V -58.6826 Z"/>
+  </g>
+  <g id="Regular-S" transform="matrix(1 0 0 1 1403.34 696)">
+   <path d="M 33.9094 -49.2816 A 20.9844 20.9844 0 0 0 52.6719 -37.6983 h 6.8039 a 11.1143 11.1143 0 1 1 0 7.4062 H 52.6719 A 28.3116 28.3116 0 0 1 31.6875 -39.5597 v 17.3059 a 11.1094 11.1094 0 1 1 -7.4062 0 V -48.2053 a 11.1094 11.1094 0 1 1 9.6281 -1.0764 Z M 27.9844 -8.0733 a 3.7031 3.7031 0 1 0 0 -7.4062 3.7031 3.7031 0 0 0 0 7.4062 Z m 41.9688 -22.2188 a 3.7031 3.7031 0 1 0 0 -7.4062 3.7031 3.7031 0 0 0 0 7.4062 Z M 31.6875 -58.6826 a 3.7031 3.7031 0 1 0 0 0.0247 V -58.6826 Z"/>
+  </g>
+  <g id="Black-S" transform="matrix(1 0 0 1 2886.9 696)">
+   <path d="M 33.9094 -49.2816 A 20.9844 20.9844 0 0 0 52.6719 -37.6983 h 6.8039 a 11.1143 11.1143 0 1 1 0 7.4062 H 52.6719 A 28.3116 28.3116 0 0 1 31.6875 -39.5597 v 17.3059 a 11.1094 11.1094 0 1 1 -7.4062 0 V -48.2053 a 11.1094 11.1094 0 1 1 9.6281 -1.0764 Z M 27.9844 -8.0733 a 3.7031 3.7031 0 1 0 0 -7.4062 3.7031 3.7031 0 0 0 0 7.4062 Z m 41.9688 -22.2188 a 3.7031 3.7031 0 1 0 0 -7.4062 3.7031 3.7031 0 0 0 0 7.4062 Z M 31.6875 -58.6826 a 3.7031 3.7031 0 1 0 0 0.0247 V -58.6826 Z"/>
+  </g>
+ </g>
+</svg>

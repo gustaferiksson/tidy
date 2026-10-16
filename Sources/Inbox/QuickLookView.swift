@@ -73,7 +73,7 @@ struct QuickLookView: View {
 
     private func details(of item: InboxItem) -> some View {
         let glyph = item.status == .failed
-            ? StateGlyph(symbol: StateGlyph.baseSymbol(for: item.thread.subject.kind), tone: .grey, label: "State unavailable")
+            ? StateGlyph(octicon: StateGlyph.baseOcticon(for: item.thread.subject.kind), tone: .grey, label: "State unavailable")
             : item.glyph
         let stateWord = item.status == .failed
             ? "State unavailable"

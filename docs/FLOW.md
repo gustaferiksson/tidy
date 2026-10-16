@@ -110,7 +110,7 @@ Done replaces "clear" and "clear all". There's a single path for each action.
 
 ## 5. State glyphs
 
-All symbols were checked with `NSImage(systemSymbolName:)`. Each one shipped in SF Symbols 5 or earlier, so they're all available on macOS 26.
+State glyphs are GitHub's own [Octicons](https://github.com/primer/octicons) (MIT, notice in `LICENSES/octicons.txt`), shipped as custom symbols in `Resources/Assets.xcassets/Octicons`. Each one is the 16 px Octicon converted to an SF Symbols template by `icon/octicon-symbols.py` (`python3 icon/octicon-symbols.py <octicons>/build/svg Resources/Assets.xcassets/Octicons`), scaled so a 16 px circle matches the SF `circle` and centred on the cap height. They tint and size like SF Symbols. UI chrome (buttons, menus, the menu bar label, empty states) stays on SF Symbols.
 
 **Colours (GitHub light / dark):**
 
@@ -125,25 +125,25 @@ All symbols were checked with `NSImage(systemSymbolName:)`. Each one shipped in 
 
 With Increase Contrast on, Tidy uses the system colours instead (`.green`, `.purple`, `.red`, `.orange`, `.yellow`, `.gray`).
 
-| Subject and state | Symbol | Colour |
+| Subject and state | Octicon | Colour |
 |---|---|---|
-| PR open / draft / closed | `arrow.triangle.pull` (Octicon git-pull-request) | green / grey / red |
-| PR merged | `arrow.triangle.merge` (git-merge) | purple |
-| Issue open | `smallcircle.filled.circle` (issue-opened: a ring with a dot) | green |
-| Issue closed as completed | `checkmark.circle` (issue-closed) | purple |
-| Issue closed as not planned | `circle.slash` (skip) | grey |
-| Discussion / answered | `bubble.left.and.bubble.right` / `checkmark.bubble` | green / purple |
+| PR open / draft / closed | `git-pull-request` / `git-pull-request-draft` / `git-pull-request-closed` | green / grey / red |
+| PR merged | `git-merge` | purple |
+| Issue open | `issue-opened` | green |
+| Issue closed as completed | `issue-closed` | purple |
+| Issue closed as not planned | `skip` | grey |
+| Discussion / answered | `comment-discussion` / `discussion-closed` | green / purple |
 | Release | `tag` | grey |
-| Commit | `circle.and.line.horizontal` (git-commit) | grey |
-| CI failed / succeeded / cancelled | `xmark.circle` / `checkmark.circle` / `circle.slash` | red / green / grey |
-| Dependabot (`RepositoryDependabotAlertsThread`, legacy `RepositoryVulnerabilityAlert`) | `exclamationmark.shield.fill` | Highest open severity: critical red, high orange, moderate yellow, low grey |
-| `SecretScanningAlert` | `key.viewfinder` | red |
-| `RepositoryAdvisory` | `shield.lefthalf.filled` | severity colour |
-| `SecurityAdvisoryCredit` | `checkmark.seal` | purple |
-| `RepositoryInvitation` | `person.badge.plus` | grey |
-| Unknown type, or the state fetch failed | The type's base symbol, otherwise `bell` | grey |
+| Commit | `git-commit` | grey |
+| CI failed / succeeded / cancelled | `x-circle` / `check-circle` / `stop` | red / green / grey |
+| Dependabot (`RepositoryDependabotAlertsThread`, legacy `RepositoryVulnerabilityAlert`) | `dependabot` | Highest open severity: critical red, high orange, moderate yellow, low grey |
+| `SecretScanningAlert` | `key` | red |
+| `RepositoryAdvisory` | `shield` | severity colour |
+| `SecurityAdvisoryCredit` | `shield-check` | purple |
+| `RepositoryInvitation` | `person-add` | grey |
+| Unknown type, or the state fetch failed | The type's base Octicon, otherwise `bell` | grey |
 
-**Pull request states share one glyph.** Open, draft and closed differ only by colour, so state never relies on colour alone:
+**Pull request states differ by shape as well as colour**, and state never relies on either alone:
 - Every glyph has a VoiceOver label and a tooltip, for example "Pull request, draft".
 - With Differentiate Without Color on, the meta line adds the state word.
 - Quick Look always shows the state as text.
@@ -236,6 +236,7 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 | First run, no token | Centred `tray`, "Connect GitHub", and a **Connect…** button that opens Settings › GitHub | `tray` |
 | First load | A centred `ProgressView` | `tray` |
 | First load while offline | Centred `wifi.slash`, "Can't reach GitHub", **Retry** | `tray` |
+| Token can't be read from the Keychain | Before the first load: centred `key.slash`, "Can't read your token from the Keychain", **Retry**. After it: the same text and **Retry** in the footer. Every poll retries the read | `tray`, then last count |
 | Inbox zero | `checkmark.circle`, "You're all caught up". The Done section stays below | `tray` |
 | Empty because of a filter | "No unread in owner/repo", **Clear Filter** | count |
 | Offline | The cached list stays usable. The footer shows `wifi.slash` "Offline · updated 12:04" | last count |

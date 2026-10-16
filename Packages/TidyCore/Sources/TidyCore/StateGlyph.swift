@@ -12,64 +12,88 @@ public enum StateTone: String, Codable, CaseIterable, Hashable, Sendable {
   }
 }
 
+public enum Octicon: String, CaseIterable, Sendable {
+  case gitPullRequest = "git-pull-request"
+  case gitPullRequestDraft = "git-pull-request-draft"
+  case gitPullRequestClosed = "git-pull-request-closed"
+  case gitMerge = "git-merge"
+  case issueOpened = "issue-opened"
+  case issueClosed = "issue-closed"
+  case skip
+  case commentDiscussion = "comment-discussion"
+  case discussionClosed = "discussion-closed"
+  case tag
+  case gitCommit = "git-commit"
+  case xCircle = "x-circle"
+  case checkCircle = "check-circle"
+  case stop
+  case bell
+  case dependabot
+  case key
+  case shield
+  case shieldCheck = "shield-check"
+  case personAdd = "person-add"
+}
+
 public struct StateGlyph: Hashable, Sendable {
-  public let symbol: String
+  public let octicon: Octicon
   public let tone: StateTone
   public let label: String
 
-  public init(symbol: String, tone: StateTone, label: String) {
-    self.symbol = symbol
+  public init(octicon: Octicon, tone: StateTone, label: String) {
+    self.octicon = octicon
     self.tone = tone
     self.label = label
   }
 
   public init(kind: SubjectKind, state: SubjectState?, severity: Severity? = nil) {
-    let (symbol, tone) = Self.appearance(kind: kind, state: state, severity: severity)
+    let (octicon, tone) = Self.appearance(kind: kind, state: state, severity: severity)
     let detail = kind.isSecurity ? severity?.title : state?.title
-    self.init(symbol: symbol, tone: tone, label: [kind.title, detail?.lowercased()].compactMap(\.self).joined(separator: ", "))
+    self.init(octicon: octicon, tone: tone, label: [kind.title, detail?.lowercased()].compactMap(\.self).joined(separator: ", "))
   }
 
-  public static func baseSymbol(for kind: SubjectKind) -> String {
+  public static func baseOcticon(for kind: SubjectKind) -> Octicon {
     appearance(kind: kind, state: nil, severity: nil).0
   }
 
-  private static func appearance(kind: SubjectKind, state: SubjectState?, severity: Severity?) -> (String, StateTone) {
+  private static func appearance(kind: SubjectKind, state: SubjectState?, severity: Severity?) -> (Octicon, StateTone) {
     switch kind {
     case .pullRequest:
       switch state {
-      case .merged: ("arrow.triangle.merge", .purple)
-      case .open: ("arrow.triangle.pull", .green)
-      case .closed: ("arrow.triangle.pull", .red)
-      default: ("arrow.triangle.pull", .grey)
+      case .merged: (.gitMerge, .purple)
+      case .open: (.gitPullRequest, .green)
+      case .draft: (.gitPullRequestDraft, .grey)
+      case .closed: (.gitPullRequestClosed, .red)
+      default: (.gitPullRequest, .grey)
       }
     case .issue:
       switch state {
-      case .open: ("smallcircle.filled.circle", .green)
-      case .closed: ("checkmark.circle", .purple)
-      case .notPlanned: ("circle.slash", .grey)
-      default: ("smallcircle.filled.circle", .grey)
+      case .open: (.issueOpened, .green)
+      case .closed: (.issueClosed, .purple)
+      case .notPlanned: (.skip, .grey)
+      default: (.issueOpened, .grey)
       }
     case .discussion:
       switch state {
-      case .answered: ("checkmark.bubble", .purple)
-      case .open: ("bubble.left.and.bubble.right", .green)
-      default: ("bubble.left.and.bubble.right", .grey)
+      case .answered: (.discussionClosed, .purple)
+      case .open: (.commentDiscussion, .green)
+      default: (.commentDiscussion, .grey)
       }
-    case .release: ("tag", .grey)
-    case .commit: ("circle.and.line.horizontal", .grey)
+    case .release: (.tag, .grey)
+    case .commit: (.gitCommit, .grey)
     case .checkSuite, .workflowRun:
       switch state {
-      case .failed: ("xmark.circle", .red)
-      case .succeeded: ("checkmark.circle", .green)
-      case .cancelled: ("circle.slash", .grey)
-      default: ("bell", .grey)
+      case .failed: (.xCircle, .red)
+      case .succeeded: (.checkCircle, .green)
+      case .cancelled: (.stop, .grey)
+      default: (.bell, .grey)
       }
-    case .dependabotAlerts: ("exclamationmark.shield.fill", state == nil ? .grey : StateTone(severity: severity))
-    case .secretScanningAlert: ("key.viewfinder", state == nil ? .grey : .red)
-    case .repositoryAdvisory: ("shield.lefthalf.filled", state == nil ? .grey : StateTone(severity: severity))
-    case .securityAdvisoryCredit: ("checkmark.seal", .purple)
-    case .repositoryInvitation: ("person.badge.plus", .grey)
-    case .unknown: ("bell", .grey)
+    case .dependabotAlerts: (.dependabot, state == nil ? .grey : StateTone(severity: severity))
+    case .secretScanningAlert: (.key, state == nil ? .grey : .red)
+    case .repositoryAdvisory: (.shield, state == nil ? .grey : StateTone(severity: severity))
+    case .securityAdvisoryCredit: (.shieldCheck, .purple)
+    case .repositoryInvitation: (.personAdd, .grey)
+    case .unknown: (.bell, .grey)
     }
   }
 }

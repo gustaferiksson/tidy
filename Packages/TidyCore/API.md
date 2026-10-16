@@ -102,7 +102,7 @@ The store already applies: baseline-only first fetch after launch or token chang
 |---|---|
 | `id`, `isUnread` | |
 | `title` | Row title. Dependabot rows are retitled ("3 vulnerable dependencies · 2 critical") once loaded |
-| `glyph: StateGlyph` | Row glyph; grey base symbol while loading or failed |
+| `glyph: StateGlyph` | Row glyph; grey base Octicon while loading or failed |
 | `state: SubjectState?`, `severity: Severity?` | Quick Look state word (`state.title`), security severity word (`severity.title`) |
 | `webURL: URL` | Open on GitHub / Copy Link (anchored to the latest comment when known) |
 | `author: GitHubUser?`, `details?.latestComment?.author` | Quick Look people |
@@ -125,7 +125,9 @@ The store already applies: baseline-only first fetch after launch or token chang
 
 ## StateGlyph
 
-`StateGlyph(kind:state:severity:)` gives `symbol` (SF Symbol name), `tone: StateTone` and `label` (VoiceOver and tooltip, "Pull request, draft"). `StateGlyph.baseSymbol(for:)` for "State unavailable".
+`StateGlyph(kind:state:severity:)` gives `octicon: Octicon`, `tone: StateTone` and `label` (VoiceOver and tooltip, "Pull request, draft"). `StateGlyph.baseOcticon(for:)` for "State unavailable".
+
+`Octicon`: one case per GitHub Octicon the glyphs use. `rawValue` is the Octicon name and the custom symbol's asset name in the app's `Resources/Assets.xcassets/Octicons`, so render it with `Image(octicon.rawValue)` and size it with `.font` like an SF Symbol.
 
 `StateTone`: `.green .purple .red .grey .orange .yellow`. The app maps tones to colours (FLOW §5):
 

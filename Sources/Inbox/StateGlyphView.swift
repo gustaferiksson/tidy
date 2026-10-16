@@ -7,7 +7,7 @@ struct StateGlyphView: View {
     @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
-        Image(systemName: glyph.symbol)
+        Image(glyph.octicon.rawValue)
             .font(.system(size: 16))
             .foregroundStyle(Self.color(for: glyph.tone, scheme: scheme, contrast: contrast))
             .frame(width: 20, height: 20)

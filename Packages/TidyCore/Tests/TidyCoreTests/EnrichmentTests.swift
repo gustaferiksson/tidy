@@ -92,6 +92,6 @@ struct EnrichmentTests {
     #expect(try await server.client.details(for: Fixture.thread("108")).state == .open)
     #expect(try await server.client.details(for: Fixture.thread("104")).state == nil)
     #expect(server.requests.isEmpty)
-    #expect(InboxItem(thread: Fixture.thread("104")).glyph.symbol == "xmark.circle")
+    #expect(InboxItem(thread: Fixture.thread("104")).glyph.octicon == .xCircle)
   }
 }

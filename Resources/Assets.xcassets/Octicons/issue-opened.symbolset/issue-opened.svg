@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="3300" height="2200">
+ <g id="Notes">
+  <rect height="2200" id="artboard" style="fill:white;opacity:1" width="3300" x="0" y="0"/>
+  <text id="template-version" style="stroke:none;fill:black;font-family:sans-serif;font-size:13;text-anchor:end;" transform="matrix(1 0 0 1 3036 1933)">Template v.4.0</text>
+  <text id="descriptive-name" style="stroke:none;fill:black;font-family:sans-serif;font-size:13;text-anchor:end;" transform="matrix(1 0 0 1 3036 1969)">Octicon issue-opened (MIT, GitHub Inc.)</text>
+ </g>
+ <g id="Guides">
+  <line id="Baseline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="696" y2="696"/>
+  <line id="Capline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="625.541" y2="625.541"/>
+  <line id="Baseline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1126" y2="1126"/>
+  <line id="Capline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1055.541" y2="1055.541"/>
+  <line id="Baseline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1556" y2="1556"/>
+  <line id="Capline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1485.541" y2="1485.541"/>
+  <line id="left-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="513.211" x2="513.211" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="606.211" x2="606.211" y1="600.785" y2="720.121"/>
+  <line id="left-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1403.34" x2="1403.34" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1496.34" x2="1496.34" y1="600.785" y2="720.121"/>
+  <line id="left-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2886.9" x2="2886.9" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2979.9" x2="2979.9" y1="600.785" y2="720.121"/>
+ </g>
+ <g id="Symbols">
+  <g id="Ultralight-S" transform="matrix(1 0 0 1 513.211 696)">
+   <path d="M 46.5 -27.8233 a 7.4062 7.4062 0 1 0 0 -14.8125 7.4062 7.4062 0 0 0 0 14.8125 Z"/>
+   <path d="M 46.5 -74.7295 a 39.5 39.5 0 1 1 0 79 A 39.5 39.5 0 0 1 46.5 -74.7295 Z M 14.4062 -35.2295 a 32.0938 32.0938 0 1 0 64.1875 0 32.0938 32.0938 0 0 0 -64.1875 0 Z"/>
+  </g>
+  <g id="Regular-S" transform="matrix(1 0 0 1 1403.34 696)">
+   <path d="M 46.5 -27.8233 a 7.4062 7.4062 0 1 0 0 -14.8125 7.4062 7.4062 0 0 0 0 14.8125 Z"/>
+   <path d="M 46.5 -74.7295 a 39.5 39.5 0 1 1 0 79 A 39.5 39.5 0 0 1 46.5 -74.7295 Z M 14.4062 -35.2295 a 32.0938 32.0938 0 1 0 64.1875 0 32.0938 32.0938 0 0 0 -64.1875 0 Z"/>
+  </g>
+  <g id="Black-S" transform="matrix(1 0 0 1 2886.9 696)">
+   <path d="M 46.5 -27.8233 a 7.4062 7.4062 0 1 0 0 -14.8125 7.4062 7.4062 0 0 0 0 14.8125 Z"/>
+   <path d="M 46.5 -74.7295 a 39.5 39.5 0 1 1 0 79 A 39.5 39.5 0 0 1 46.5 -74.7295 Z M 14.4062 -35.2295 a 32.0938 32.0938 0 1 0 64.1875 0 32.0938 32.0938 0 0 0 -64.1875 0 Z"/>
+  </g>
+ </g>
+</svg>

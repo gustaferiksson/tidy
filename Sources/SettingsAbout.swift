@@ -18,6 +18,10 @@ struct AboutSettings: View {
                 .padding(.top, 8)
             Link("github.com/gustaferiksson/tidy", destination: URL(string: "https://github.com/gustaferiksson/tidy")!)
                 .padding(.top, 4)
+            Link("State icons: GitHub Octicons (MIT License)", destination: URL(string: "https://github.com/primer/octicons/blob/main/LICENSE")!)
+                .font(.footnote)
+                .foregroundStyle(.secondary)
+                .padding(.top, 8)
         }
         .frame(maxWidth: .infinity)
         .frame(height: 280)

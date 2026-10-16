@@ -186,6 +186,12 @@ struct InboxPanel: View {
             } actions: {
                 Button("Retry", action: store.pollNow)
             }
+        } else if !store.hasLoaded && store.issue == .keychainUnavailable {
+            ContentUnavailableView {
+                Label("Can't read your token from the Keychain", systemImage: "key.slash")
+            } actions: {
+                Button("Retry", action: store.pollNow)
+            }
         } else if !store.hasLoaded {
             ProgressView()
         } else {
@@ -220,6 +226,9 @@ struct InboxPanel: View {
         } else if case .ssoRequired(let organization, let url) = store.issue {
             let title = "Authorize token for \(organization ?? "your organization")"
             if let url { Link(title, destination: url) } else { Text(title) }
+        } else if store.issue == .keychainUnavailable {
+            Text("Can't read your token from the Keychain")
+            Button("Retry", action: store.pollNow).buttonStyle(.link)
         } else if store.issue == .notResponding {
             Text("GitHub isn't responding")
             Button("Retry", action: store.pollNow).buttonStyle(.link)
