@@ -531,6 +531,22 @@ struct InboxStoreTests {
     #expect(store.failure == nil)
   }
 
+  @Test func markAllReadAcceptedLaterStaysReadUntilNewActivity() async {
+    server.on("PUT", "/notifications", respond: StubResponse(status: 202))
+    let store = makeStore()
+    await store.refresh()
+    store.markAllRead()
+    await store.flushPending()
+    await store.refresh()
+    #expect(store.unreadCount == 0)
+    threads.withLock { list in
+      for index in list.indices where list[index].id == "101" { list[index].updatedAt = Self.now }
+    }
+    await store.refresh()
+    #expect(store.unreadCount == 1)
+    #expect(store.inbox.first { $0.id == "101" }?.isUnread == true)
+  }
+
   @Test func markAllReadInRepositoryScope() async {
     server.on("PUT", "/repos/octo/lib/notifications", respond: StubResponse(status: 205))
     let store = makeStore()

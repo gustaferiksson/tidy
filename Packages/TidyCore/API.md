@@ -43,7 +43,7 @@ Network loss pauses polling and sets `issue = .offline`; reconnect resumes polli
 | `inbox: [InboxItem]` | Every non-Done thread, newest `updatedAt` first, filters not applied |
 | `visibleItems: [InboxItem]` | `inbox` after `scope` and hide rules (hidden rows included while `showsHidden`). The Unread/All segment is the app's own `filter(\.isUnread)` |
 | `done: [InboxItem]` | Done section, newest first, persisted with last-known state |
-| `unreadCount: Int` | Menu bar count: unread, not Done, not hidden by a rule. Ignores `scope` |
+| `unreadCount: Int` | Menu bar count: unread, not Done, not hidden by a rule. Ignores `scope`. Rows whose author/state rule is still waiting for subject data count (they are visible too), so the count can drop once the data arrives |
 | `hiddenCount: Int` | Footer "N hidden by filters" |
 | `showsHidden: Bool` (settable) | Footer "Show" |
 | `scope: InboxScope` (settable) | Header filter: `participatingOnly`, `repository`; `isActive` for the capsule |
@@ -71,9 +71,9 @@ All are synchronous and optimistic: state changes at once, the GitHub call goes 
 | `markDone(_ ids: [String])` | Rows move to Done, marked read | `PATCH` per unread thread |
 | `moveToInbox(_ ids: [String])` | Done rows return as read. Immediate, not undoable. Cancels a still-pending Done or Mute for these rows | `PATCH` per unread row whose Done/Mute was cancelled, else none |
 | `removeAllDone()` | Done emptied | `DELETE` per thread, 4 at a time |
-| `markAllRead()` | Rows dim | `PUT /notifications` (no scope, nothing hidden), `PUT /repos/{o}/{r}/notifications` (repo scope), or `PATCH` per visible unread thread (Participating Only or hide rules hiding something) |
+| `markAllRead()` | Rows dim (never rows hidden by a rule, even while `showsHidden`). After a `PUT`, rows stay read locally until a poll shows them read or with newer activity, since GitHub may answer 202 and apply it later | `PUT /notifications` (no scope, nothing hidden), `PUT /repos/{o}/{r}/notifications` (repo scope), or `PATCH` per visible unread thread (Participating Only or hide rules hiding something) |
 | `muteThread(_ id: String)` | Row moves to Done | `PUT …/subscription {ignored: true}` then `PATCH`; adds to `muted` on success |
-| `muteRepository(_ fullName: String)` | Appends rule "Repository is X → Hide" | none |
+| `muteRepository(_ fullName: String)` | Appends rule "Repository is X → Hide", unless one already hides exactly that repository | none |
 | `unmute(_ id: String) async throws` | Removes from `muted` | `PUT …/subscription {ignored: false}`, immediate |
 | `undo() -> [String]` | Reverts `undoableChange`; returns its thread ids to scroll to and select. `[]` once the window has passed | cancelled |
 | `retryFailed()` | Re-applies failed changes and sends them now | as above |

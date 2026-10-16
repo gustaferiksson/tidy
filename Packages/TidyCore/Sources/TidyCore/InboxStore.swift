@@ -58,6 +58,7 @@ public final class InboxStore {
   @ObservationIgnored private var staleDetails: [String: SubjectDetails] = [:]
   @ObservationIgnored private var ruleActed: Set<String> = []
   @ObservationIgnored private var deferred: [String: PendingAction] = [:]
+  @ObservationIgnored private var markedRead: [String: Date] = [:]
 
   public init(
     directory: URL = InboxStore.defaultDirectory,
@@ -393,6 +394,8 @@ public final class InboxStore {
       return InboxItem(thread: thread, status: old.status)
     }
     for change in pending { apply(change) }
+    markedRead = markedRead.filter { id, markedAt in fresh[id].map { $0.unread && $0.updatedAt <= markedAt } ?? false }
+    for index in inbox.indices where markedRead[inbox[index].id] != nil { inbox[index].thread.unread = false }
     save(done, as: "done.json")
     let waiting = deferred
     deferred = [:]
@@ -541,6 +544,9 @@ public final class InboxStore {
     save(pending, as: "pending.json")
     let errors = await Self.send(change, client: client)
     let succeeded = change.items.filter { errors[$0.id] == nil }
+    if case .markAllRead(let target) = change.action, target != .visibleThreads {
+      for item in succeeded where item.isUnread { markedRead[item.id] = item.thread.updatedAt }
+    }
     if change.action == .mute, !succeeded.isEmpty {
       muted += succeeded.map {
         MutedThread(id: $0.id, title: $0.title, repository: $0.thread.repository.fullName)
@@ -667,6 +673,7 @@ public final class InboxStore {
     pending = []
     undoableChange = nil
     deferred = [:]
+    markedRead = [:]
     done = []
     muted = []
     failure = nil
