@@ -1,0 +1,98 @@
+{
+  "data": {
+    "repository": {
+      "issueOrPullRequest": {
+        "kind": "PullRequest",
+        "author": {
+          "login": "mona",
+          "avatarUrl": "https://avatars.githubusercontent.com/u/2?s=40&v=4"
+        },
+        "createdAt": "2026-10-07T14:44:35Z",
+        "url": "https://github.com/octo/app/pull/51",
+        "body": "",
+        "labels": {
+          "nodes": []
+        },
+        "assignees": {
+          "nodes": []
+        },
+        "milestone": null,
+        "baseRefName": "main",
+        "headRefName": "mona/export",
+        "additions": 609,
+        "deletions": 325,
+        "changedFiles": 5,
+        "mergeable": "UNKNOWN",
+        "reviewDecision": "APPROVED",
+        "latestReviews": {
+          "nodes": [
+            {
+              "state": "APPROVED",
+              "author": {
+                "login": "octocat",
+                "avatarUrl": "https://avatars.githubusercontent.com/u/1?s=40&v=4"
+              }
+            }
+          ]
+        },
+        "reviewRequests": {
+          "nodes": [
+            {
+              "requestedReviewer": {
+                "login": "hubot",
+                "avatarUrl": "https://avatars.githubusercontent.com/u/3?s=40&v=4"
+              }
+            }
+          ]
+        },
+        "commits": {
+          "nodes": [
+            {
+              "commit": {
+                "statusCheckRollup": {
+                  "state": "SUCCESS",
+                  "contexts": {
+                    "nodes": [
+                      {
+                        "name": "build",
+                        "status": "COMPLETED",
+                        "conclusion": "SUCCESS"
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "timelineItems": {
+          "filteredCount": 2,
+          "nodes": [
+            {
+              "id": "PRR_1",
+              "author": {
+                "login": "hubot",
+                "avatarUrl": "https://avatars.githubusercontent.com/u/3?s=40&v=4"
+              },
+              "body": "Looks fine, one question inline.",
+              "createdAt": "2026-10-09T08:00:21Z",
+              "url": "https://github.com/octo/app/pull/51#pullrequestreview-1",
+              "state": "COMMENTED"
+            },
+            {
+              "id": "PRR_2",
+              "author": {
+                "login": "octocat",
+                "avatarUrl": "https://avatars.githubusercontent.com/u/1?s=40&v=4"
+              },
+              "body": "",
+              "createdAt": "2026-10-12T11:51:40Z",
+              "url": "https://github.com/octo/app/pull/51#pullrequestreview-2",
+              "state": "APPROVED"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

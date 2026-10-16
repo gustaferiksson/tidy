@@ -4,10 +4,12 @@ import Testing
 @testable import TidyCore
 
 struct ThreadDetailsTests {
+  static let scopes = ["notifications", "repo", "read:org"]
+
   @Test func requestIsOneGraphQLPostWithVariables() async throws {
     let server = StubServer()
     server.on("POST", "/graphql", respond: .json("graphql_pull"))
-    _ = try await server.client.threadDetails(for: Fixture.thread("101"))
+    _ = try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes)
     #expect(server.requests.count == 1)
     let request = try #require(server.requests.first)
     #expect(request.url.host() == "api.github.com")
@@ -24,7 +26,7 @@ struct ThreadDetailsTests {
   @Test func decodesPullRequest() async throws {
     let server = StubServer()
     server.on("POST", "/graphql", respond: .json("graphql_pull"))
-    let details = try await server.client.threadDetails(for: Fixture.thread("101"))
+    let details = try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes)
     #expect(details.author == GitHubUser(login: "mona", avatarURL: URL(string: "https://avatars.githubusercontent.com/u/2?s=40&v=4")))
     #expect(details.body == "Adds **dark mode**.")
     #expect(details.labels == [IssueLabel(name: "enhancement", color: "a2eeef"), IssueLabel(name: "ui", color: "ededed")])
@@ -52,10 +54,75 @@ struct ThreadDetailsTests {
     #expect(details.discussion == nil)
   }
 
+  @Test func teamReviewersAreQueriedOnlyWithReadOrg() async throws {
+    let server = StubServer()
+    server.on("POST", "/graphql", respond: .json("graphql_pull"))
+    _ = try await server.client.threadDetails(for: Fixture.thread("101"), scopes: ["notifications", "repo"])
+    _ = try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes)
+    let queries = server.requests.compactMap { $0.json?["query"] as? String }
+    #expect(queries.count == 2)
+    #expect(!queries[0].contains("on Team"), "a Team selection without read:org makes GitHub reject the whole query")
+    #expect(queries[1].contains("... on Team { slug avatarUrl(size: 40) }"))
+  }
+
+  @Test func requestedUserAndTeamApprovedAndChangesRequested() async throws {
+    let server = StubServer()
+    server.on("POST", "/graphql", respond: .json("graphql_pull"))
+    let pull = try #require(try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes).pullRequest)
+    let states = Dictionary(uniqueKeysWithValues: pull.reviewers.map { ($0.user.login, $0.state) })
+    #expect(states == ["octocat": .approved, "hubot": .changesRequested, "lisa": .requested, "design": .requested])
+  }
+
+  @Test func recordedCommentedReviewWithPendingRequest() async throws {
+    let server = StubServer()
+    server.on("POST", "/graphql", respond: .json("graphql_pull_commented"))
+    let details = try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes)
+    let pull = try #require(details.pullRequest)
+    #expect(pull.reviewDecision == nil)
+    #expect(pull.reviewers == [
+      Reviewer(user: GitHubUser(login: "mona", avatarURL: URL(string: "https://avatars.githubusercontent.com/u/2?s=40&v=4")), state: .commented),
+      Reviewer(user: GitHubUser(login: "octocat", avatarURL: URL(string: "https://avatars.githubusercontent.com/u/1?s=40&v=4")), state: .requested),
+    ])
+    #expect(details.comments.map(\.review) == [.commented])
+    #expect(details.totalComments == 1)
+  }
+
+  @Test func recordedReRequestedReviewerIsPendingAgain() async throws {
+    let server = StubServer()
+    server.on("POST", "/graphql", respond: .json("graphql_pull_rerequested"))
+    let details = try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes)
+    let pull = try #require(details.pullRequest)
+    #expect(pull.reviewDecision == .approved)
+    #expect(pull.reviewers.map(\.user.login) == ["octocat", "hubot"])
+    #expect(pull.reviewers.map(\.state) == [.approved, .requested])
+    #expect(details.comments.map(\.author?.login) == ["hubot", "octocat"])
+    #expect(details.comments.map(\.review) == [.commented, .approved])
+    #expect(details.totalComments == 2)
+  }
+
+  @Test func partialErrorsAndMalformedNodesKeepTheRest() async throws {
+    let server = StubServer()
+    let body = #"""
+      {"data":{"repository":{"issueOrPullRequest":{"kind":"PullRequest","baseRefName":"main","headRefName":"f",
+        "latestReviews":{"nodes":[{"state":"APPROVED","author":{"login":"octocat"}},null,{"state":7,"author":{"login":"bad"}}]},
+        "reviewRequests":{"nodes":[{"requestedReviewer":null},{"requestedReviewer":{"login":"hubot"}}]},
+        "timelineItems":{"filteredCount":3,"nodes":[{"id":"IC_1","body":"hi","createdAt":"yesterday"},{"id":"IC_2","body":"ok","createdAt":"2026-10-15T09:00:00Z"}]}
+      }}},
+      "errors":[{"type":"FORBIDDEN","path":["repository","issueOrPullRequest","reviewRequests","nodes",0,"requestedReviewer"],"message":"Resource not accessible"}]}
+      """#
+    server.on("POST", "/graphql", respond: StubResponse(status: 200, body: Data(body.utf8)))
+    let details = try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes)
+    let pull = try #require(details.pullRequest)
+    #expect(pull.reviewers.map(\.user.login) == ["octocat", "hubot"])
+    #expect(pull.reviewers.map(\.state) == [.approved, .requested])
+    #expect(details.comments.map(\.id) == ["IC_2"])
+    #expect(details.totalComments == 3)
+  }
+
   @Test func decodesIssue() async throws {
     let server = StubServer()
     server.on("POST", "/graphql", respond: .json("graphql_issue"))
-    let details = try await server.client.threadDetails(for: Fixture.thread("102"))
+    let details = try await server.client.threadDetails(for: Fixture.thread("102"), scopes: Self.scopes)
     #expect(server.requests.first?.json?["variables"].flatMap { $0 as? [String: Any] }?["number"] as? Int == 7)
     #expect(details.pullRequest == nil)
     #expect(details.labels.map(\.name) == ["bug"])
@@ -76,7 +143,7 @@ struct ThreadDetailsTests {
       ]}}}
       """#
     server.on("POST", "/graphql", respond: StubResponse(status: 200, body: Data(body.utf8)))
-    let details = try await server.client.threadDetails(for: Fixture.thread("108"))
+    let details = try await server.client.threadDetails(for: Fixture.thread("108"), scopes: Self.scopes)
     let variables = server.requests.first?.json?["variables"] as? [String: Any]
     #expect(variables?["query"] as? String == #"repo:octo/app in:title "How do I configure themes?""#)
     #expect(details.body == "yes")
@@ -88,24 +155,24 @@ struct ThreadDetailsTests {
     let server = StubServer()
     let body = #"{"data":{"repository":{"issueOrPullRequest":null}},"errors":[{"type":"NOT_FOUND","message":"x"}]}"#
     server.on("POST", "/graphql", respond: StubResponse(status: 200, body: Data(body.utf8)))
-    await #expect(throws: GitHubError.notFound) { try await server.client.threadDetails(for: Fixture.thread("101")) }
+    await #expect(throws: GitHubError.notFound) { try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes) }
   }
 
   @Test func forbiddenAndSchemaErrors() async throws {
     let server = StubServer()
     server.on("POST", "/graphql", respond: StubResponse(status: 200, body: Data(#"{"data":{"repository":null},"errors":[{"type":"FORBIDDEN"}]}"#.utf8)))
-    await #expect(throws: GitHubError.forbidden) { try await server.client.threadDetails(for: Fixture.thread("101")) }
+    await #expect(throws: GitHubError.forbidden) { try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes) }
     server.on("POST", "/graphql", respond: StubResponse(status: 200, body: Data(#"{"errors":[{"message":"Field 'x' doesn't exist"}]}"#.utf8)))
-    await #expect(throws: GitHubError.decoding) { try await server.client.threadDetails(for: Fixture.thread("101")) }
+    await #expect(throws: GitHubError.decoding) { try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes) }
     server.on("POST", "/graphql", respond: StubResponse(status: 502))
-    await #expect(throws: GitHubError.server(status: 502)) { try await server.client.threadDetails(for: Fixture.thread("101")) }
+    await #expect(throws: GitHubError.server(status: 502)) { try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes) }
   }
 
   @Test func discussionWithoutScopeIsNotFound() async throws {
     let server = StubServer()
     let body = #"{"data":{"search":null},"errors":[{"type":"INSUFFICIENT_SCOPES","message":"read:discussion"}]}"#
     server.on("POST", "/graphql", respond: StubResponse(status: 200, body: Data(body.utf8)))
-    await #expect(throws: GitHubError.notFound) { try await server.client.threadDetails(for: Fixture.thread("108")) }
+    await #expect(throws: GitHubError.notFound) { try await server.client.threadDetails(for: Fixture.thread("108"), scopes: Self.scopes) }
   }
 
   @Test func unsupportedThreadsAreNotFetched() {

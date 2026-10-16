@@ -206,24 +206,28 @@ public enum ThreadDetailsStatus: Hashable, Sendable {
 }
 
 extension GitHubClient {
-  public func threadDetails(for thread: NotificationThread) async throws -> ThreadDetails {
+  public func threadDetails(for thread: NotificationThread, scopes: [String]) async throws -> ThreadDetails {
     let fullName = thread.repository.fullName
     if thread.subject.kind == .discussion {
       let title = thread.subject.title.replacing("\"", with: "")
       let search = "repo:\(fullName) in:title \"\(title)\""
       return try await graphQL(SearchData.self, query: Self.discussionQuery, variables: ["query": search]) { data in
-        data.search?.nodes?.compactMap(\.self).first { $0.title == thread.subject.title }?.details
+        data.search?.items.first { $0.title == thread.subject.title }?.details
       }
     }
     let parts = fullName.split(separator: "/", maxSplits: 1).map(String.init)
     guard let number = thread.number, parts.count == 2 else { throw GitHubError.notFound }
     let variables: [String: Any] = ["owner": parts[0], "name": parts[1], "number": number]
-    return try await graphQL(RepositoryData.self, query: Self.issueOrPullRequestQuery, variables: variables) {
+    let readsTeams = scopes.contains { ["read:org", "write:org", "admin:org"].contains($0) }
+    // GitHub rejects the whole query, not just the field, when any Team field is selected without read:org.
+    let query = Self.issueOrPullRequestQuery(teamReviewer: readsTeams ? "... on Team { slug avatarUrl(size: 40) }" : "")
+    return try await graphQL(RepositoryData.self, query: query, variables: variables) {
       $0.repository?.issueOrPullRequest?.details
     }
   }
 
-  static let issueOrPullRequestQuery = """
+  static func issueOrPullRequestQuery(teamReviewer: String) -> String {
+    """
     query($owner: String!, $name: String!, $number: Int!) {
       repository(owner: $owner, name: $name) {
         issueOrPullRequest(number: $number) {
@@ -242,12 +246,12 @@ extension GitHubClient {
             milestone { title }
             baseRefName headRefName additions deletions changedFiles mergeable reviewDecision
             latestReviews(first: 20) { nodes { state author { ...Who } } }
-            reviewRequests(first: 20) { nodes { requestedReviewer { ...Who ... on Team { slug avatarUrl(size: 40) } } } }
+            reviewRequests(first: 20) { nodes { requestedReviewer { ...Who \(teamReviewer) } } }
             commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes {
               ... on CheckRun { name status conclusion }
               ... on StatusContext { context state }
             } } } } } }
-            timelineItems(last: 10, itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW]) { totalCount nodes {
+            timelineItems(last: 10, itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW]) { filteredCount nodes {
               ... on IssueComment { id author { ...Who } body createdAt url }
               ... on PullRequestReview { id author { ...Who } body createdAt url state }
             } }
@@ -257,6 +261,7 @@ extension GitHubClient {
     }
     fragment Who on Actor { login avatarUrl(size: 40) }
     """
+  }
 
   static let discussionQuery = """
     query($query: String!) {
@@ -289,10 +294,26 @@ private struct SearchData: Decodable {
 }
 
 private struct Connection<Node: Decodable>: Decodable {
-  let totalCount: Int?
-  let nodes: [Node?]?
+  private struct Lossy: Decodable {
+    let node: Node?
 
-  var items: [Node] { nodes?.compactMap(\.self) ?? [] }
+    init(from decoder: any Decoder) throws {
+      node = try? Node(from: decoder)
+    }
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case totalCount, filteredCount, nodes
+  }
+
+  let totalCount: Int?
+  let items: [Node]
+
+  init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    totalCount = try container.decodeIfPresent(Int.self, forKey: .filteredCount) ?? container.decodeIfPresent(Int.self, forKey: .totalCount)
+    items = (try? container.decodeIfPresent([Lossy].self, forKey: .nodes))?.compactMap(\.node) ?? []
+  }
 }
 
 private struct ActorNode: Decodable {

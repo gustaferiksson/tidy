@@ -229,10 +229,11 @@ public final class InboxStore {
       return
     }
     threadDetailsCache[id] = (updatedAt, .loading)
+    let scopes = account?.scopes ?? []
     Task {
       let status: ThreadDetailsStatus
       do {
-        status = .loaded(try await client.threadDetails(for: item.thread))
+        status = .loaded(try await client.threadDetails(for: item.thread, scopes: scopes))
       } catch GitHubError.notFound {
         status = .unavailable
       } catch {
