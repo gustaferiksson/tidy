@@ -139,6 +139,15 @@ struct InboxStoreTests {
     #expect(store.inbox.contains { $0.id == "501" })
   }
 
+  @Test func missingAccountIsFilledOnNextPoll() async throws {
+    server.on("GET", "/user", respond: .json("user", headers: ["X-OAuth-Scopes": "repo"]))
+    let store = makeStore()
+    #expect(store.account == nil)
+    await store.refresh()
+    #expect(store.account?.user.login == "octocat")
+    #expect(makeStore().account?.user.login == "octocat")
+  }
+
   @Test func connectRejectsFineGrainedTokens() async {
     let store = makeStore()
     await #expect(throws: GitHubError.fineGrainedToken) { try await store.connect(token: "github_pat_abc") }

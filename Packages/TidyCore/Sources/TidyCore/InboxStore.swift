@@ -186,6 +186,10 @@ public final class InboxStore {
           return nil
         }
       }
+      if account == nil, let validated = try? await client.validate(), client.token == self.client?.token {
+        account = validated
+        save(validated, as: "account.json")
+      }
       lastModified = fetch.lastModified
       pollInterval = fetch.pollInterval
       consecutiveFailures = 0

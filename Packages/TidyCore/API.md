@@ -48,7 +48,7 @@ Network loss pauses polling and sets `issue = .offline`; reconnect resumes polli
 | `showsHidden: Bool` (settable) | Footer "Show" |
 | `scope: InboxScope` (settable) | Header filter: `participatingOnly`, `repository`; `isActive` for the capsule |
 | `repositories: [String]` | Repos seen, sorted, for the Repository submenu and rule picker |
-| `isSignedIn`, `account: GitHubAccount?` | `account.user.login/avatarURL`, `account.scopes` (rechecked every poll) |
+| `isSignedIn`, `account: GitHubAccount?` | `account.user.login/avatarURL`, `account.scopes` (rechecked every poll). A missing or unreadable `account.json` is refilled via `GET /user` on the next successful poll |
 | `hasLoaded` | false until the first successful fetch (first-load spinner) |
 | `isRefreshing` | Spinner on the refresh button |
 | `isCapped` | 200-thread cap hit: footer "Showing the last 14 days" |
