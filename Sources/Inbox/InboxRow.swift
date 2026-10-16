@@ -68,7 +68,6 @@ struct InboxRow: View {
                     .transition(.opacity)
             }
         }
-        .background(OverlayScrollerStyle())
         .animation(.easeOut(duration: 0.15), value: isHovered)
         .onHover { hovering in
             if hovering {
@@ -90,7 +89,7 @@ struct InboxRow: View {
     }
 
     private var titleMask: some View {
-        let buttonsWidth = buttonSize * 2 + 4
+        let buttonsWidth = item.isUnread ? buttonSize * 2 + 4 : buttonSize
         let covered = isHovered ? max(0, buttonsWidth - ageWidth - 8) : 0
         return HStack(spacing: 0) {
             Color.black
@@ -116,8 +115,9 @@ struct InboxRow: View {
 
     private var hoverButtons: some View {
         HStack(spacing: 4) {
-            hoverButton("Mark as Read", symbol: "envelope.open") { store.markRead([item.id]) }
-                .disabled(!item.isUnread)
+            if item.isUnread {
+                hoverButton("Mark as Read", symbol: "envelope.open") { store.markRead([item.id]) }
+            }
             hoverButton("Done", symbol: "checkmark") { store.markDone([item.id]) }
         }
         .foregroundStyle(.secondary)
@@ -133,18 +133,6 @@ struct InboxRow: View {
         .pointerStyle(.link)
         .help(title)
         .accessibilityLabel(title)
-    }
-}
-
-private struct OverlayScrollerStyle: NSViewRepresentable {
-    func makeNSView(context: Context) -> NSView { ScrollerStyleView() }
-    func updateNSView(_ nsView: NSView, context: Context) {}
-
-    private final class ScrollerStyleView: NSView {
-        override func viewDidMoveToWindow() {
-            super.viewDidMoveToWindow()
-            enclosingScrollView?.scrollerStyle = .overlay
-        }
     }
 }
 
