@@ -372,6 +372,6 @@ The "Notify for" list covers reasons only. Filters handle everything else.
 
 **Connect…** and **Update Token…** in the panel open Settings on the GitHub tab.
 
-**Updates:** a scheduled check downloads a newer release quietly and never interrupts: the panel footer and the ⋯ menu then offer **Install X**. Only a manual check shows an alert.
+**Updates:** a scheduled check downloads and verifies a newer release quietly and never interrupts. Once it's ready, Tidy installs it and relaunches at the next quiet moment: the panel is closed, no Settings window is open and pending GitHub changes have been sent. If you're mid-interaction, it retries when the panel or Settings closes, or at the next check. Until then the panel footer offers **Install X** and the ⋯ menu **Install X and Relaunch**. With "Automatically check for updates" off, nothing installs on its own. Only a manual check shows an alert. Quitting Tidy with an update downloaded installs it without relaunching.
 
 **Links:** the panel, Quick Look and banners open only `https` links on `github.com`, its subdomains and `*.githubusercontent.com`. Anything else in a comment body is ignored.
