@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import TidyCore
 
 @MainActor
 @Observable
@@ -32,6 +33,9 @@ final class AppUpdater {
     @ObservationIgnored private var timer: Timer?
     @ObservationIgnored private var wakeObserver: NSObjectProtocol?
     @ObservationIgnored private var swapping = false
+    @ObservationIgnored private var waitingForQuiet = false
+    @ObservationIgnored private var settingsCloseObserver: NSObjectProtocol?
+    @ObservationIgnored private let store: InboxStore
 
     var isBusy: Bool { status == .checking || status == .downloading }
 
@@ -45,6 +49,10 @@ final class AppUpdater {
 
     nonisolated static var installDir: URL { Bundle.main.bundleURL.deletingLastPathComponent() }
 
+    init(store: InboxStore) {
+        self.store = store
+    }
+
     func start() {
         guard Self.isSelfUpdatable else {
             status = .blocked("This build doesn’t update itself.")
@@ -52,6 +60,13 @@ final class AppUpdater {
         }
         Self.clearStaging()
         scheduleChecks()
+        settingsCloseObserver = NotificationCenter.default.addObserver(forName: NSWindow.willCloseNotification, object: nil, queue: .main) { [weak self] note in
+            nonisolated(unsafe) let window = note.object as? NSWindow
+            Task { @MainActor in
+                guard window?.identifier?.rawValue.contains("Settings") == true else { return }
+                self?.installWhenQuiet()
+            }
+        }
     }
 
     func scheduleChecks() {
@@ -80,7 +95,7 @@ final class AppUpdater {
         }
         if let staged {
             status = .ready(staged.version)
-            if trigger == .manual { offer(staged.version) }
+            if trigger == .manual { offer(staged.version) } else { installWhenQuiet() }
             return
         }
         guard !isBusy else { return }
@@ -109,7 +124,7 @@ final class AppUpdater {
         do {
             staged = (latest, try await Self.downloadVerified(version: latest))
             status = .ready(latest)
-            if trigger == .manual { offer(latest) }
+            if trigger == .manual { offer(latest) } else { installWhenQuiet() }
         } catch {
             Self.clearStaging()
             status = .failed(error.localizedDescription)
@@ -134,6 +149,22 @@ final class AppUpdater {
             return
         }
         NSApp.terminate(nil)
+    }
+
+    func installWhenQuiet() {
+        guard AppSettings.shared.checksForUpdatesAutomatically, staged != nil, !swapping, !waitingForQuiet, isQuiet else { return }
+        waitingForQuiet = true
+        Task {
+            await store.flushPending()
+            waitingForQuiet = false
+            guard isQuiet, store.pending.isEmpty else { return }
+            installAndRelaunch()
+        }
+    }
+
+    private var isQuiet: Bool {
+        NSApp.keyWindow == nil && NSApp.modalWindow == nil
+            && !NSApp.windows.contains { $0.isVisible && $0.identifier?.rawValue.contains("Settings") == true }
     }
 
     func installOnQuit() {
@@ -264,7 +295,7 @@ final class AppUpdater {
     fi
     rm -rf "$backup"
     rm -rf "$(dirname "$staged")"
-    if [ "$relaunch" = "open" ]; then open "$target"; fi
+    if [ "$relaunch" = "open" ]; then /usr/bin/open -g -a "$target"; fi
     rm -f "$0"
     exit 0
     """

@@ -42,6 +42,7 @@ final class PanelController {
         Task { await store.flushPending() }
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(200))
+            updater.installWhenQuiet()
             guard !isOpen, NSApp.keyWindow == nil, NSWorkspace.shared.frontmostApplication == .current else { return }
             previousApp?.activate()
         }

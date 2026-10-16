@@ -3,7 +3,7 @@ import TidyCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
-    let updater = AppUpdater()
+    let updater: AppUpdater
     let store: InboxStore
     let panel: PanelController
     private let banners: Banners
@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #else
         store = InboxStore()
         #endif
+        updater = AppUpdater(store: store)
         panel = PanelController(store: store, updater: updater)
         banners = Banners(store: store, panel: panel)
         super.init()
