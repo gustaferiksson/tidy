@@ -39,9 +39,8 @@ Set in Settings › General › Menu Bar.
 
 **Header (44 pt):**
 - **Leading:** a segmented control with Unread and All.
-- **Trailing:** three buttons.
+- **Trailing:** two buttons.
   - `line.3.horizontal.decrease.circle` opens a menu with Participating Only and a Repository submenu. The submenu is built locally from the repos in the list.
-  - `arrow.clockwise.circle` refreshes. It turns into a spinner while a fetch runs.
   - `ellipsis.circle` opens a menu with Mark All as Read, Settings… (⌘,) and Quit Tidy (⌘Q).
 - While a filter is active, it shows as a removable capsule under the header.
 
@@ -74,6 +73,8 @@ There is no Done section. Done archives a thread (§4), so it leaves the list.
 - `Marked as done · Undo` while a change can be undone (see §4). Only a failure outranks it.
 - `4 hidden by filters · Show`. This link is the only way to reveal hidden items.
 - `Showing the last 14 days` once the 200-thread cap is reached.
+
+A small plain `arrow.clockwise` at the footer's trailing end refreshes (⌘R). It turns into a mini spinner of the same footprint while a fetch runs. It's hidden before the first load, while the token is invalid or lacks a scope, and while the footer already offers a Retry that fetches (Keychain, not responding).
 
 ## 4. Read and Done model
 

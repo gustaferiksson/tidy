@@ -62,7 +62,7 @@ struct InboxPanel: View {
                 .focusEffectDisabled()
             }
             Spacer(minLength: 8)
-            if store.isSignedIn { filterAndRefresh }
+            if store.isSignedIn { filterMenu }
             moreMenu
         }
         .menuStyle(.button)
@@ -73,7 +73,7 @@ struct InboxPanel: View {
         .frame(height: 44)
     }
 
-    @ViewBuilder private var filterAndRefresh: some View {
+    @ViewBuilder private var filterMenu: some View {
         @Bindable var store = store
         Menu {
             Toggle("Participating Only", isOn: $store.scope.participatingOnly)
@@ -94,20 +94,6 @@ struct InboxPanel: View {
         .fixedSize()
         .help("Filter")
         .accessibilityLabel("Filter")
-        Button {
-            store.pollNow()
-        } label: {
-            ZStack {
-                ProgressView().controlSize(.small).opacity(store.isRefreshing ? 1 : 0)
-                Image(systemName: "arrow.clockwise.circle").resizable().scaledToFit().frame(width: 16, height: 16).opacity(store.isRefreshing ? 0 : 1)
-            }
-            .frame(width: 28, height: 28)
-            .contentShape(Rectangle())
-        }
-        .keyboardShortcut("r")
-        .disabled(store.isRefreshing)
-        .help("Refresh")
-        .accessibilityLabel("Refresh")
     }
 
     private var moreMenu: some View {
@@ -211,6 +197,7 @@ struct InboxPanel: View {
                 Button("Install \(staged.version)", action: updater.installAndRelaunch)
                     .buttonStyle(.link)
             }
+            if showsRefresh { refreshButton }
         }
         .font(.footnote)
         .foregroundStyle(.secondary)
@@ -218,6 +205,27 @@ struct InboxPanel: View {
         .padding(.leading, 12)
         .padding(.trailing, 16)
         .frame(height: 28)
+    }
+
+    private var showsRefresh: Bool {
+        let showsRetry = store.failure == nil && store.undoableChange == nil && (store.issue == .keychainUnavailable || store.issue == .notResponding)
+        return store.hasLoaded && !showsRetry && store.issue != .unauthorized && store.issue != .missingScope
+    }
+
+    private var refreshButton: some View {
+        ZStack {
+            ProgressView().controlSize(.mini).opacity(store.isRefreshing ? 1 : 0)
+            Button(action: store.pollNow) {
+                Image(systemName: "arrow.clockwise").imageScale(.small)
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.secondary)
+            .pointerStyle(.link)
+            .disabled(store.isRefreshing)
+            .opacity(store.isRefreshing ? 0 : 1)
+            .help("Refresh")
+            .accessibilityLabel("Refresh")
+        }
     }
 
     @ViewBuilder private var footerStatus: some View {
@@ -269,6 +277,9 @@ struct InboxPanel: View {
                 .keyboardShortcut("a")
                 .disabled(panel.quickLookID != nil)
             Button("Mark All as Read", action: store.markAllRead).keyboardShortcut("i", modifiers: [.command, .shift])
+            Button("Refresh", action: store.pollNow)
+                .keyboardShortcut("r")
+                .disabled(!store.isSignedIn || store.isRefreshing)
             SettingsLink { Text("Settings…") }.keyboardShortcut(",")
             Button("Quit Tidy") { NSApp.terminate(nil) }.keyboardShortcut("q")
             Button("Back") { panel.quickLookID = nil }.keyboardShortcut("[")
