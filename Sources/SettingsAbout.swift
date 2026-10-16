@@ -5,7 +5,7 @@ struct AboutSettings: View {
         let info = Bundle.main.infoDictionary ?? [:]
         let version = info["CFBundleShortVersionString"] as? String ?? "?"
         let build = info["CFBundleVersion"] as? String ?? "?"
-        VStack(spacing: 6) {
+        VStack(spacing: 4) {
             Image(nsImage: NSApp.applicationIconImage)
                 .resizable()
                 .frame(width: 96, height: 96)
@@ -15,9 +15,11 @@ struct AboutSettings: View {
                 .foregroundStyle(.secondary)
                 .textSelection(.enabled)
             Text("A tidy inbox for GitHub notifications in your menu bar.")
-                .padding(.top, 6)
+                .padding(.top, 8)
+            Link("github.com/gustaferiksson/tidy", destination: URL(string: "https://github.com/gustaferiksson/tidy")!)
+                .padding(.top, 4)
         }
         .frame(maxWidth: .infinity)
-        .frame(height: 260)
+        .frame(height: 280)
     }
 }

@@ -31,6 +31,13 @@ struct GeneralSettings: View {
 
             Section {
                 Toggle("Show menu bar icon", isOn: $settings.showMenuBarIcon)
+                HStack(spacing: 12) {
+                    ForEach(MenuBarStyle.allCases, id: \.self) { style in
+                        MenuBarStyleOption(style: style, selection: $settings.menuBarStyle)
+                    }
+                }
+                .padding(.vertical, 4)
+                .disabled(!settings.showMenuBarIcon)
             } header: {
                 Text("Menu Bar")
             } footer: {
@@ -38,7 +45,6 @@ struct GeneralSettings: View {
             }
 
             Section("Updates") {
-                LabeledContent("Version", value: AppUpdater.currentVersion)
                 HStack(spacing: 8) {
                     updateStatus
                     Spacer()
@@ -57,7 +63,7 @@ struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
-        .frame(height: 360)
+        .frame(height: 420)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             loginStatus = SMAppService.mainApp.status
         }
@@ -76,6 +82,8 @@ struct GeneralSettings: View {
             Text(message).font(.callout).foregroundStyle(.orange)
         } else if case .failed(let message) = updater.status {
             Text(message).font(.callout).foregroundStyle(.red)
+        } else {
+            Text("Version \(AppUpdater.currentVersion)").font(.callout).foregroundStyle(.secondary)
         }
     }
 
@@ -87,5 +95,43 @@ struct GeneralSettings: View {
             loginError = "Couldn't change Launch at login: \(error.localizedDescription)"
         }
         loginStatus = SMAppService.mainApp.status
+    }
+}
+
+private struct MenuBarStyleOption: View {
+    let style: MenuBarStyle
+    @Binding var selection: MenuBarStyle
+    @Environment(\.isEnabled) private var isEnabled
+
+    var body: some View {
+        let isSelected = selection == style
+        let title = switch style {
+        case .iconAndCount: "Icon and Unread Count"
+        case .countOnly: "Unread Count Only"
+        case .iconOnly: "Icon Only"
+        }
+        Button { selection = style } label: {
+            VStack(spacing: 8) {
+                HStack(spacing: 4) {
+                    if style != .countOnly { Image(systemName: "tray.badge") }
+                    if style != .iconOnly { Text("3").monospacedDigit() }
+                }
+                .font(.system(size: 13, weight: .medium))
+                .frame(maxWidth: .infinity, minHeight: 44)
+                .background(.quaternary, in: .rect(cornerRadius: 8))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 8)
+                        .strokeBorder(isSelected ? Color.accentColor : .clear, lineWidth: 2)
+                }
+                Text(title)
+                    .font(.callout)
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+            }
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .opacity(isEnabled ? 1 : 0.5)
+        .accessibilityLabel(title)
+        .accessibilityAddTraits(isSelected ? .isSelected : [])
     }
 }
