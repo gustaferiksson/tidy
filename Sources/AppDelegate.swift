@@ -1,8 +1,10 @@
 import AppKit
+import TidyCore
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate {
     let updater = AppUpdater()
+    let store = InboxStore()
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
@@ -12,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
         updater.start()
+        store.start()
     }
 
     func applicationWillTerminate(_ notification: Notification) {

@@ -1,4 +1,5 @@
 import SwiftUI
+import TidyCore
 
 @main
 struct TidyApp: App {
@@ -8,6 +9,7 @@ struct TidyApp: App {
     var body: some Scene {
         MenuBarExtra(isInserted: $settings.showMenuBarIcon) {
             InboxWindow(updater: appDelegate.updater)
+                .environment(appDelegate.store)
         } label: {
             Image(systemName: "tray")
         }
@@ -16,6 +18,7 @@ struct TidyApp: App {
         Settings {
             SettingsView(settings: settings)
                 .environment(appDelegate.updater)
+                .environment(appDelegate.store)
         }
     }
 }
