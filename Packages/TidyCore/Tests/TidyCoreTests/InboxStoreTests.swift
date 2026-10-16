@@ -16,6 +16,28 @@ final class MemoryTokenStorage: TokenStorage {
   func delete() throws { token.withLock { $0 = nil } }
 }
 
+final class FlakyKeychain: TokenStorage {
+  private let failures: Mutex<Int>
+  let token: String
+
+  init(token: String, failures: Int) {
+    self.token = token
+    self.failures = Mutex(failures)
+  }
+
+  func read() throws -> String? {
+    let failing = failures.withLock { count in
+      defer { count -= 1 }
+      return count > 0
+    }
+    if failing { throw KeychainError(status: errSecInteractionNotAllowed) }
+    return token
+  }
+
+  func save(_ token: String) throws {}
+  func delete() throws {}
+}
+
 final class EventRecorder: Sendable {
   private let events = Locked<[InboxEvent]>([])
 
@@ -23,6 +45,14 @@ final class EventRecorder: Sendable {
     let stream = store.events
     Task { [events] in
       for await event in stream { events.withLock { $0.append(event) } }
+    }
+  }
+
+  func all() async -> [InboxEvent] {
+    try? await Task.sleep(for: .milliseconds(50))
+    return events.withLock { recorded in
+      defer { recorded.removeAll() }
+      return recorded
     }
   }
 
@@ -90,6 +120,18 @@ struct InboxStoreTests {
     #expect(item.id == "201")
   }
 
+  @Test func threadsReadOnGitHubWithdrawTheirBanners() async {
+    let store = makeStore()
+    let recorder = EventRecorder(store)
+    await store.refresh()
+    #expect(await recorder.all().isEmpty)
+    threads.withLock { list in
+      for index in list.indices where ["101", "103"].contains(list[index].id) { list[index].unread = false }
+    }
+    await store.refresh()
+    #expect(await recorder.all() == [.withdraw(threadIDs: ["101", "103"])])
+  }
+
   @Test func moreThanFiveNewThreadsSendOneSummary() async {
     let store = makeStore()
     let recorder = EventRecorder(store)
@@ -139,10 +181,58 @@ struct InboxStoreTests {
     #expect(store.inbox.contains { $0.id == "501" })
   }
 
+  @Test func missingAccountIsFilledOnNextPoll() async throws {
+    server.on("GET", "/user", respond: .json("user", headers: ["X-OAuth-Scopes": "repo"]))
+    let store = makeStore()
+    #expect(store.account == nil)
+    await store.refresh()
+    #expect(store.account?.user.login == "octocat")
+    #expect(makeStore().account?.user.login == "octocat")
+  }
+
+  @Test func keychainReadErrorIsAnIssueNotASignOut() async {
+    let store = InboxStore(
+      directory: directory, tokenStorage: FlakyKeychain(token: server.token, failures: 2), session: server.session,
+      networkPaths: AsyncStream { _ in }, now: { Self.now })
+    #expect(store.isSignedIn)
+    #expect(store.issue == .keychainUnavailable)
+    #expect(await store.refresh() == .seconds(60))
+    #expect(store.issue == .keychainUnavailable)
+    #expect(store.isSignedIn)
+    await store.refresh()
+    #expect(store.issue == nil)
+    #expect(store.inbox.count == 8)
+  }
+
   @Test func connectRejectsFineGrainedTokens() async {
     let store = makeStore()
     await #expect(throws: GitHubError.fineGrainedToken) { try await store.connect(token: "github_pat_abc") }
     #expect(server.requests.isEmpty)
+  }
+
+  @Test func conditionalPollReturningOnlyChangedThreadsKeepsTheRest() async {
+    server.on("GET", "/notifications") { [threads] request in
+      let all = threads.withLock { $0 }
+      let changed = request.headers["If-Modified-Since"].map { _ in all.filter { $0.id.hasPrefix("7") } } ?? all
+      return .encoded(changed, headers: ["X-OAuth-Scopes": "repo", "Last-Modified": "Thu, 15 Oct 2026 10:00:00 GMT"])
+    }
+    let store = makeStore()
+    await store.refresh()
+    #expect(store.inbox.count == 8)
+    addThread("701")
+    addThread("702", minutesAfterNewest: 11)
+    await store.refresh()
+    #expect(store.inbox.count == 10)
+    let polls = server.requests.filter { $0.path == "/notifications" }
+    #expect(polls.map { $0.headers["If-Modified-Since"] } == [nil, "Thu, 15 Oct 2026 10:00:00 GMT", nil])
+  }
+
+  @Test func threadShiftingAcrossPagesAppearsOnce() async {
+    threads.withLock { $0.append($0[0]) }
+    let store = makeStore()
+    await store.refresh()
+    #expect(store.inbox.count == 8)
+    #expect(Set(store.inbox.map(\.id)).count == 8)
   }
 
   @Test func notModifiedKeepsListAndHonoursPollInterval() async {
@@ -155,6 +245,43 @@ struct InboxStoreTests {
     #expect(await store.refresh() == .seconds(180))
     #expect(store.inbox.count == 8)
     #expect(store.issue == nil)
+  }
+
+  @Test func pollNowDuringAFetchPollsAgainAtOnce() async throws {
+    let calls = Locked(0)
+    server.on("GET", "/notifications") { [threads] _ in
+      let call = calls.withLock { count in
+        count += 1
+        return count
+      }
+      var response = StubResponse.encoded(threads.withLock { $0 }, headers: ["X-OAuth-Scopes": "repo"])
+      response.delay = call == 1 ? 2 : 0
+      return response
+    }
+    let store = makeStore()
+    store.start()
+    try await Task.sleep(for: .milliseconds(50))
+    store.pollNow()
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(store.hasLoaded)
+    #expect(calls.withLock { $0 } == 2)
+    store.stop()
+  }
+
+  @Test func refreshSpinnerStopsBeforeTheBannerWait() async throws {
+    let store = InboxStore(
+      directory: directory, tokenStorage: MemoryTokenStorage(server.token), session: server.session,
+      bannerWait: .seconds(2), networkPaths: AsyncStream { _ in }, now: { Self.now })
+    await store.refresh()
+    try await Task.sleep(for: .milliseconds(50))
+    server.on("GET", "/repos/octo/app/pulls/42", respond: StubResponse(status: 200, body: Data("{}".utf8), delay: 2))
+    threads.withLock { list in
+      for index in list.indices where list[index].id == "101" { list[index].updatedAt = Self.now }
+    }
+    let refresh = Task { await store.refresh() }
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(!store.isRefreshing)
+    refresh.cancel()
   }
 
   @Test func unauthorizedStopsPolling() async {
@@ -274,6 +401,39 @@ struct InboxStoreTests {
     #expect(requests("PATCH") == ["/notifications/threads/101", "/notifications/threads/101"])
   }
 
+  @Test func undoWindowClosesWhileOfflineAndAfterRelaunch() async throws {
+    server.on("PATCH", "/notifications/threads/101", respond: .offline)
+    let store = makeStore(commitDelay: .milliseconds(50))
+    await store.refresh()
+    store.markRead(["101"])
+    #expect(store.undoableChange?.threadIDs == ["101"])
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(store.pending.map(\.threadIDs) == [["101"]])
+    #expect(store.undoableChange == nil)
+    #expect(store.undo().isEmpty)
+    #expect(store.pending.count == 1)
+    let relaunched = makeStore()
+    #expect(relaunched.pending.count == 1)
+    relaunched.start()
+    #expect(relaunched.undoableChange == nil)
+    relaunched.stop()
+  }
+
+  @Test func bannerActionsBeforeFirstPollApplyOnceLoaded() async {
+    let store = makeStore()
+    store.markDone(["101"])
+    store.markRead(["103"])
+    #expect(store.pending.isEmpty)
+    await store.refresh()
+    #expect(store.done.map(\.id) == ["101"])
+    #expect(store.inbox.first { $0.id == "103" }?.isUnread == false)
+    #expect(store.undoableChange == nil)
+    await store.flushPending()
+    #expect(Set(requests("PATCH")) == ["/notifications/threads/101", "/notifications/threads/103"])
+    await store.refresh()
+    #expect(store.done.map(\.id) == ["101"])
+  }
+
   @Test func pendingChangesSurviveAPoll() async {
     let store = makeStore()
     await store.refresh()
@@ -307,6 +467,29 @@ struct InboxStoreTests {
     #expect(store.done.isEmpty)
     #expect(store.inbox.first?.id == "101")
     #expect(store.inbox.first?.isUnread == false)
+  }
+
+  @Test func moveToInboxBeforeCommitCancelsDoneButStillMarksRead() async throws {
+    server.on("PATCH", "/notifications/threads/101") { [threads] _ in
+      threads.withLock { list in
+        for index in list.indices where list[index].id == "101" { list[index].unread = false }
+      }
+      return StubResponse(status: 205)
+    }
+    let store = makeStore()
+    await store.refresh()
+    store.markDone(["101", "103"])
+    store.moveToInbox(["101"])
+    #expect(store.undoableChange?.threadIDs == ["103"])
+    await store.refresh()
+    #expect(store.done.map(\.id) == ["103"])
+    #expect(store.inbox.contains { $0.id == "101" })
+    await store.flushPending()
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(Set(requests("PATCH")) == ["/notifications/threads/101", "/notifications/threads/103"])
+    #expect(store.pending.isEmpty)
+    await store.refresh()
+    #expect(store.inbox.first { $0.id == "101" }?.isUnread == false)
   }
 
   @Test func doneThreadResurfacesWithNewActivity() async {
@@ -348,6 +531,22 @@ struct InboxStoreTests {
     #expect(store.failure == nil)
   }
 
+  @Test func markAllReadAcceptedLaterStaysReadUntilNewActivity() async {
+    server.on("PUT", "/notifications", respond: StubResponse(status: 202))
+    let store = makeStore()
+    await store.refresh()
+    store.markAllRead()
+    await store.flushPending()
+    await store.refresh()
+    #expect(store.unreadCount == 0)
+    threads.withLock { list in
+      for index in list.indices where list[index].id == "101" { list[index].updatedAt = Self.now }
+    }
+    await store.refresh()
+    #expect(store.unreadCount == 1)
+    #expect(store.inbox.first { $0.id == "101" }?.isUnread == true)
+  }
+
   @Test func markAllReadInRepositoryScope() async {
     server.on("PUT", "/repos/octo/lib/notifications", respond: StubResponse(status: 205))
     let store = makeStore()
@@ -369,6 +568,17 @@ struct InboxStoreTests {
     #expect(Set(requests("PATCH")) == ["/notifications/threads/101", "/notifications/threads/104", "/notifications/threads/105", "/notifications/threads/108"])
     #expect(requests("PUT").isEmpty)
     #expect(store.inbox.first { $0.id == "103" }?.isUnread == true)
+  }
+
+  @Test func markAllReadLeavesHiddenRowsAloneWhileShown() async {
+    let store = makeStore()
+    await store.refresh()
+    store.rules = [FilterRule(conditions: [.repository("octo/lib")])]
+    store.showsHidden = true
+    store.markAllRead()
+    #expect(store.inbox.first { $0.id == "103" }?.isUnread == true)
+    await store.flushPending()
+    #expect(!requests("PATCH").contains("/notifications/threads/103"))
   }
 
   @Test func filtersShapeListAndCount() async {
@@ -411,6 +621,7 @@ struct InboxStoreTests {
     let store = makeStore()
     await store.refresh()
     store.muteRepository("octo/lib")
+    store.muteRepository("octo/lib")
     #expect(store.rules.map(\.conditions) == [[.repository("octo/lib")]])
     #expect(store.hiddenCount == 3)
   }
@@ -445,6 +656,17 @@ struct InboxStoreTests {
     try await Task.sleep(for: .milliseconds(100))
     #expect(server.requests.filter { $0.path == "/repos/octo/app/pulls/42" }.count == fetches)
     #expect(store.inbox.first { $0.id == "101" }?.state == .draft)
+  }
+
+  @Test func undecodableFilesAreMovedAsideNotOverwritten() async throws {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let garbage = Data("{ not json".utf8)
+    try garbage.write(to: directory.appending(path: "done.json"))
+    let store = makeStore()
+    await store.refresh()
+    store.markDone(["101"])
+    #expect(try Data(contentsOf: directory.appending(path: "done.json.corrupt")) == garbage)
+    #expect(makeStore().done.map(\.id) == ["101"])
   }
 
   @Test func disconnectClearsAccountData() async {

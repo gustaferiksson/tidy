@@ -7,6 +7,7 @@ struct StubResponse: Sendable {
   var status: Int
   var headers: [String: String] = [:]
   var body = Data()
+  var delay: TimeInterval = 0
 
   static func json(_ fixture: String, status: Int = 200, headers: [String: String] = [:]) -> StubResponse {
     StubResponse(status: status, headers: headers, body: Fixture.data(fixture))
@@ -97,6 +98,14 @@ final class StubProtocol: URLProtocol, @unchecked Sendable {
       return
     }
     let stub = server.handle(recorded)
+    guard stub.delay == 0 else {
+      DispatchQueue.global().asyncAfter(deadline: .now() + stub.delay) { self.finish(with: stub) }
+      return
+    }
+    finish(with: stub)
+  }
+
+  private func finish(with stub: StubResponse) {
     guard stub.status != 0 else {
       client?.urlProtocol(self, didFailWithError: URLError(.notConnectedToInternet))
       return

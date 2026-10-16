@@ -83,12 +83,14 @@ public struct GitHubClient: Sendable {
     guard response.statusCode != 304 else {
       return NotificationsFetch(threads: nil, isComplete: true, lastModified: lastModified, pollInterval: pollInterval, scopes: scopes)
     }
+    // A 200 to a conditional request lists only threads changed since If-Modified-Since, not the whole inbox.
+    guard ifModifiedSince == nil else { return try await notifications(since: since, ifModifiedSince: nil) }
     var threads = try Self.decode([NotificationThread].self, from: data)
-    var next = Self.nextPage(in: response)
+    var next = nextPage(in: response)
     while let page = next, threads.count < Self.threadLimit {
       let (data, response) = try await send(request(page))
       threads += try Self.decode([NotificationThread].self, from: data)
-      next = Self.nextPage(in: response)
+      next = nextPage(in: response)
     }
     return NotificationsFetch(
       threads: Array(threads.prefix(Self.threadLimit)),
@@ -149,6 +151,7 @@ public struct GitHubClient: Sendable {
 
   @discardableResult
   private func send(_ request: URLRequest) async throws -> (Data, HTTPURLResponse) {
+    guard request.url?.host() == baseURL.host(), request.url?.scheme == baseURL.scheme else { throw GitHubError.forbidden }
     let result: (Data, URLResponse)
     do {
       result = try await session.data(for: request)
@@ -176,10 +179,10 @@ public struct GitHubClient: Sendable {
     }
   }
 
-  private static func nextPage(in response: HTTPURLResponse) -> URL? {
+  private func nextPage(in response: HTTPURLResponse) -> URL? {
     let link = response.value(forHTTPHeaderField: "Link") ?? ""
     let next = link.split(separator: ",").first { $0.contains("rel=\"next\"") }
     let target = next?.split(separator: ";").first?.trimmingCharacters(in: CharacterSet(charactersIn: " <>"))
-    return target.flatMap { URL(string: $0) }
+    return target.flatMap { URL(string: $0) }.flatMap { $0.host() == baseURL.host() ? $0 : nil }
   }
 }
