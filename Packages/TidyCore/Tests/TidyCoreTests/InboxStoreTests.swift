@@ -554,6 +554,17 @@ struct InboxStoreTests {
     #expect(store.inbox.first { $0.id == "103" }?.isUnread == true)
   }
 
+  @Test func markAllReadLeavesHiddenRowsAloneWhileShown() async {
+    let store = makeStore()
+    await store.refresh()
+    store.rules = [FilterRule(conditions: [.repository("octo/lib")])]
+    store.showsHidden = true
+    store.markAllRead()
+    #expect(store.inbox.first { $0.id == "103" }?.isUnread == true)
+    await store.flushPending()
+    #expect(!requests("PATCH").contains("/notifications/threads/103"))
+  }
+
   @Test func filtersShapeListAndCount() async {
     let store = makeStore()
     await store.refresh()
@@ -593,6 +604,7 @@ struct InboxStoreTests {
   @Test func muteRepositoryAddsHideRule() async {
     let store = makeStore()
     await store.refresh()
+    store.muteRepository("octo/lib")
     store.muteRepository("octo/lib")
     #expect(store.rules.map(\.conditions) == [[.repository("octo/lib")]])
     #expect(store.hiddenCount == 3)

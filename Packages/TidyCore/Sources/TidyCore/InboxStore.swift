@@ -96,8 +96,6 @@ public final class InboxStore {
   public var unreadCount: Int { inbox.count { $0.isUnread && !rules.outcome(for: $0).hides } }
   public var repositories: [String] { Set((inbox + done).map(\.thread.repository.fullName)).sorted() }
 
-  public func outcome(for item: InboxItem) -> FilterOutcome { rules.outcome(for: item) }
-
   public static func networkAvailability() -> AsyncStream<Bool> {
     AsyncStream { continuation in
       let monitor = NWPathMonitor()
@@ -255,7 +253,7 @@ public final class InboxStore {
     let unread = inbox.filter(\.isUnread)
     let newest = (inbox + done).map(\.thread.updatedAt).max() ?? now()
     if scope.participatingOnly || hiddenCount > 0 {
-      perform(.markAllRead(.visibleThreads), items: visibleItems.filter(\.isUnread))
+      perform(.markAllRead(.visibleThreads), items: unread.filter { scope.contains($0) && !rules.outcome(for: $0).hides })
     } else if let repository = scope.repository {
       perform(.markAllRead(.repository(repository, lastReadAt: newest)), items: unread.filter { scope.contains($0) })
     } else {
@@ -268,6 +266,7 @@ public final class InboxStore {
   }
 
   public func muteRepository(_ fullName: String) {
+    guard !rules.contains(where: { $0.conditions == [.repository(fullName)] && $0.action.hides }) else { return }
     rules.append(FilterRule(conditions: [.repository(fullName)], action: .hide, savedAt: now()))
   }
 
