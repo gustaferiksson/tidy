@@ -203,7 +203,7 @@ struct InboxPanel: View {
         .foregroundStyle(.secondary)
         .lineLimit(1)
         .padding(.leading, 12)
-        .padding(.trailing, 16)
+        .padding(.trailing, 20)
         .frame(height: 28)
     }
 
