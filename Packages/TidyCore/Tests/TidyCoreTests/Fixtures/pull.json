@@ -1,0 +1,10 @@
+{
+  "url": "https://api.github.com/repos/octo/app/pulls/42",
+  "id": 1, "number": 42, "state": "open", "locked": false, "title": "Add dark mode",
+  "user": {"login": "mona", "id": 2, "avatar_url": "https://avatars.githubusercontent.com/u/2?v=4", "type": "User"},
+  "body": "Adds **dark mode**.\n\n- [x] Tests",
+  "html_url": "https://github.com/octo/app/pull/42",
+  "draft": true, "merged": false, "merged_at": null, "closed_at": null,
+  "created_at": "2026-10-14T10:00:00Z", "updated_at": "2026-10-15T10:00:00Z",
+  "head": {"ref": "dark", "sha": "abc"}, "base": {"ref": "main", "sha": "def"}
+}

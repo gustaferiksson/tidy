@@ -1,0 +1,7 @@
+{
+  "id": 9001, "url": "https://api.github.com/repos/octo/app/issues/comments/9001",
+  "html_url": "https://github.com/octo/app/pull/42#issuecomment-9001",
+  "body": "Looks good, one nit.\nSecond line.",
+  "user": {"login": "octocat", "id": 1, "avatar_url": "https://avatars.githubusercontent.com/u/1?v=4", "type": "User"},
+  "created_at": "2026-10-15T10:00:00Z", "updated_at": "2026-10-15T10:00:00Z"
+}
