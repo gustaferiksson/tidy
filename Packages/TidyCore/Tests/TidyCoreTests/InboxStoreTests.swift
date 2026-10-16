@@ -145,6 +145,23 @@ struct InboxStoreTests {
     #expect(server.requests.isEmpty)
   }
 
+  @Test func conditionalPollReturningOnlyChangedThreadsKeepsTheRest() async {
+    server.on("GET", "/notifications") { [threads] request in
+      let all = threads.withLock { $0 }
+      let changed = request.headers["If-Modified-Since"].map { _ in all.filter { $0.id.hasPrefix("7") } } ?? all
+      return .encoded(changed, headers: ["X-OAuth-Scopes": "repo", "Last-Modified": "Thu, 15 Oct 2026 10:00:00 GMT"])
+    }
+    let store = makeStore()
+    await store.refresh()
+    #expect(store.inbox.count == 8)
+    addThread("701")
+    addThread("702", minutesAfterNewest: 11)
+    await store.refresh()
+    #expect(store.inbox.count == 10)
+    let polls = server.requests.filter { $0.path == "/notifications" }
+    #expect(polls.map { $0.headers["If-Modified-Since"] } == [nil, "Thu, 15 Oct 2026 10:00:00 GMT", nil])
+  }
+
   @Test func notModifiedKeepsListAndHonoursPollInterval() async {
     let store = makeStore()
     await store.refresh()

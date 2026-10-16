@@ -83,6 +83,8 @@ public struct GitHubClient: Sendable {
     guard response.statusCode != 304 else {
       return NotificationsFetch(threads: nil, isComplete: true, lastModified: lastModified, pollInterval: pollInterval, scopes: scopes)
     }
+    // A 200 to a conditional request lists only threads changed since If-Modified-Since, not the whole inbox.
+    guard ifModifiedSince == nil else { return try await notifications(since: since, ifModifiedSince: nil) }
     var threads = try Self.decode([NotificationThread].self, from: data)
     var next = Self.nextPage(in: response)
     while let page = next, threads.count < Self.threadLimit {
