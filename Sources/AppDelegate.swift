@@ -11,7 +11,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     override init() {
         #if DEBUG
-        store = InboxSnapshot.output == nil ? InboxStore() : InboxSnapshot.makeStore(.populated)
+        store = SettingsSnapshot.store ?? (InboxSnapshot.output == nil ? InboxStore() : InboxSnapshot.makeStore(.populated))
         #else
         store = InboxStore()
         #endif
@@ -30,7 +30,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         #if DEBUG
         if let output = SettingsSnapshot.output {
-            Task { await SettingsSnapshot.capture(to: output) { _ = applicationShouldHandleReopen(NSApp, hasVisibleWindows: false) } }
+            Task { await SettingsSnapshot.capture(to: output) }
             return
         }
         if let output = InboxSnapshot.output {
@@ -56,21 +56,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        #if DEBUG
-        let opensSettings = SettingsSnapshot.output != nil
-        #else
-        let opensSettings = false
-        #endif
-        guard opensSettings else {
-            panel.open()
-            return true
-        }
-        // SwiftUI rejects showSettingsWindow: sent from code ("use SettingsLink") but honours its own app-menu item.
-        guard let menu = NSApp.mainMenu?.items.first?.submenu,
-              let index = menu.items.firstIndex(where: { $0.keyEquivalent == "," })
-        else { return true }
-        NSApp.activate()
-        menu.performActionForItem(at: index)
+        panel.open()
         return true
     }
 }

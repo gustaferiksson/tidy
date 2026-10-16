@@ -36,7 +36,8 @@ final class PanelController {
         isOpen = false
         Task { await store.flushPending() }
         Task { @MainActor in
-            guard NSApp.keyWindow == nil, NSWorkspace.shared.frontmostApplication == .current else { return }
+            try? await Task.sleep(for: .milliseconds(200))
+            guard !isOpen, NSApp.keyWindow == nil, NSWorkspace.shared.frontmostApplication == .current else { return }
             previousApp?.activate()
         }
     }
@@ -86,10 +87,7 @@ final class PanelController {
         window.hidesOnDeactivate = true
         window.isReleasedWhenClosed = false
         window.level = .statusBar
-        let glass = NSGlassEffectView()
-        glass.cornerRadius = 16
-        glass.contentView = NSHostingView(rootView: content)
-        window.contentView = glass
+        window.contentView = NSHostingView(rootView: content)
         return window
     }
 }

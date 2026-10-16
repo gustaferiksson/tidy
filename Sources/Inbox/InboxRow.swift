@@ -36,16 +36,26 @@ struct InboxRow: View {
                     .redacted(reason: item.status == .loading ? .placeholder : [])
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.trailing, 56)
         }
         .padding(.vertical, 8)
         .padding(.trailing, 12)
         .frame(minHeight: 52)
         .contentShape(Rectangle())
+        .simultaneousGesture(TapGesture().onEnded {
+            guard NSEvent.modifierFlags.isDisjoint(with: [.command, .shift]) else { return }
+            panel.selection = [item.id]
+            panel.quickLookID = item.id
+        })
         .overlay(alignment: .trailing) {
-            if isHovered { hoverButtons.padding(.trailing, 8) }
+            if isHovered {
+                hoverButtons
+                    .padding(.trailing, 8)
+                    .transition(.opacity)
+            }
         }
+        .animation(.easeOut(duration: 0.15), value: isHovered)
         .onHover { isHovered = $0 }
-        .simultaneousGesture(TapGesture(count: 2).onEnded { panel.quickLookID = item.id })
         .swipeActions(edge: .leading) {
             if item.isUnread {
                 Button("Mark as Read", systemImage: "envelope.open") { store.markRead([item.id]) }
@@ -72,7 +82,7 @@ struct InboxRow: View {
     }
 
     private var hoverButtons: some View {
-        HStack(spacing: 0) {
+        HStack(spacing: 4) {
             if isDone {
                 hoverButton("Move to Inbox", symbol: "tray.and.arrow.up") { store.moveToInbox([item.id]) }
             } else {
@@ -81,8 +91,7 @@ struct InboxRow: View {
                 hoverButton("Done", symbol: "checkmark") { store.markDone([item.id]) }
             }
         }
-        .padding(.horizontal, 4)
-        .glassEffect(.regular.interactive(), in: .capsule)
+        .foregroundStyle(.secondary)
     }
 
     private func hoverButton(_ title: String, symbol: String, action: @escaping () -> Void) -> some View {
@@ -92,7 +101,17 @@ struct InboxRow: View {
                 .contentShape(Rectangle())
         }
         .buttonStyle(.borderless)
+        .pointerStyle(.link)
         .help(title)
         .accessibilityLabel(title)
     }
+}
+
+func shortAge(of date: Date, now: Date) -> String {
+    let minutes = Int(now.timeIntervalSince(date) / 60)
+    if minutes < 1 { return "now" }
+    if minutes < 60 { return "\(minutes)m" }
+    if minutes < 24 * 60 { return "\(minutes / 60)h" }
+    if minutes < 7 * 24 * 60 { return "\(minutes / (24 * 60))d" }
+    return date.formatted(.dateTime.month(.abbreviated).day())
 }

@@ -1,10 +1,16 @@
 import SwiftUI
 
 struct MarkdownView: View {
-    private let blocks: [Block]
+    let source: String
+    @State private var blocks: [Block] = []
 
-    init(_ source: String) {
-        blocks = Self.blocks(from: source)
+    static func plainFirstLine(of source: String) -> String {
+        let line = blocks(from: source)
+            .lazy
+            .flatMap { String($0.text.characters).split(whereSeparator: \.isNewline) }
+            .map { $0.replacing(/<\/?[A-Za-z][^>]*>/, with: "").trimmingCharacters(in: .whitespaces) }
+            .first { !$0.isEmpty } ?? ""
+        return line.count > 200 ? String(line.prefix(199)) + "…" : line
     }
 
     var body: some View {
@@ -47,6 +53,7 @@ struct MarkdownView: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .onChange(of: source, initial: true) { blocks = Self.blocks(from: source) }
     }
 
     private struct Block: Identifiable {
@@ -63,8 +70,9 @@ struct MarkdownView: View {
 
     private static func blocks(from source: String) -> [Block] {
         let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .full, failurePolicy: .returnPartiallyParsedIfPossible)
-        guard var attributed = try? AttributedString(markdown: linkingHTML(in: source), options: options) else {
-            return [Block(id: 0, kind: .paragraph, text: AttributedString(source))]
+        let linked = linkingHTML(in: source)
+        guard var attributed = try? AttributedString(markdown: linked, options: options) else {
+            return [Block(id: 0, kind: .paragraph, text: AttributedString(linked))]
         }
         for (imageURL, range) in attributed.runs[\.imageURL] {
             guard let imageURL else { continue }

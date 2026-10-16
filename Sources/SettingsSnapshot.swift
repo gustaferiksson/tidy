@@ -21,7 +21,8 @@ enum SettingsSnapshot {
         return InboxStore(directory: directory, tokenStorage: MemoryTokenStorage(), session: GitHubClient.makeSession(configuration: configuration))
     }()
 
-    static func capture(to output: URL, openSettings: () -> Void) async {
+    static func capture(to output: URL) async {
+        NSApp.setActivationPolicy(.prohibited)
         if UserDefaults.standard.string(forKey: "AppleInterfaceStyle") == "Dark" { NSApp.appearance = NSAppearance(named: .darkAqua) }
         URLProtocol.registerClass(SnapshotProtocol.self)
         if let store, scene != "signedOut", scene != "fineGrained" {
@@ -34,29 +35,16 @@ enum SettingsSnapshot {
             ]
             store.silencedReasons = [.subscribed, .ciActivity]
         }
-        openSettings()
-        let settings = await window { $0.isVisible && $0.identifier?.rawValue.contains("Settings") == true }
-        settings.setFrameOrigin(NSPoint(x: -4000, y: 0))
-        let target = scene == "ruleEditor" ? await window { $0.isSheet && $0.isVisible } : settings
-        try? await Task.sleep(for: .seconds(1.5))
-        guard let image = image(of: target) else { exit(1) }
-        try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?.write(to: output)
+        // SwiftUI rejects showSettingsWindow: sent from code ("use SettingsLink") but honours its own app-menu item.
+        guard let menu = NSApp.mainMenu?.items.first?.submenu,
+              let index = menu.items.firstIndex(where: { $0.keyEquivalent == "," })
+        else { exit(1) }
+        menu.performActionForItem(at: index)
+        let settings = await SnapshotCapture.window { $0.identifier?.rawValue.contains("Settings") == true }
+        SnapshotCapture.hideOffScreen(settings)
+        let target = scene == "ruleEditor" ? await SnapshotCapture.window { $0.isSheet && $0.isVisible } : settings
+        guard await SnapshotCapture.write(target, to: output) else { exit(1) }
         exit(0)
-    }
-
-    // cacheDisplay skips Liquid Glass; CGWindowListCreateImage is SDK-obsoleted but still exported and captures own windows without Screen Recording.
-    private static func image(of window: NSWindow) -> CGImage? {
-        typealias CreateImage = @convention(c) (CGRect, CGWindowListOption, CGWindowID, CGWindowImageOption) -> Unmanaged<CGImage>?
-        guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") else { return nil }
-        let create = unsafeBitCast(symbol, to: CreateImage.self)
-        return create(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution])?.takeRetainedValue()
-    }
-
-    private static func window(where matches: (NSWindow) -> Bool) async -> NSWindow {
-        while true {
-            if let window = NSApp.windows.first(where: matches) { return window }
-            try? await Task.sleep(for: .milliseconds(20))
-        }
     }
 }
 

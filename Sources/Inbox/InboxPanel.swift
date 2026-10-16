@@ -27,11 +27,14 @@ struct InboxPanel: View {
             }
             .navigationDestination(item: $panel.quickLookID) { id in
                 QuickLookView(id: id, order: items + (doneExpanded ? store.done : []))
-            }
+                    }
         }
         .toolbarVisibility(.hidden, for: .windowToolbar)
         .ignoresSafeArea(.container, edges: .top)
         .frame(width: Self.size.width, height: Self.size.height)
+        .glassEffect(.regular, in: .rect(cornerRadius: 16))
+        .containerBackground(.clear, for: .window)
+        .environment(\.openURL, OpenURLAction { $0.isGitHubWeb ? .systemAction : .discarded })
         .background { shortcuts }
         .background(PanelWindowObserver(panel: panel))
         .onExitCommand {
@@ -57,6 +60,7 @@ struct InboxPanel: View {
                 .pickerStyle(.segmented)
                 .labelsHidden()
                 .fixedSize()
+                .focusEffectDisabled()
             }
             Spacer(minLength: 8)
             if store.isSignedIn { filterAndRefresh }
@@ -65,7 +69,6 @@ struct InboxPanel: View {
         .menuStyle(.button)
         .menuIndicator(.hidden)
         .buttonStyle(.borderless)
-        .imageScale(.large)
         .padding(.horizontal, 12)
         .frame(height: 44)
     }
@@ -83,7 +86,10 @@ struct InboxPanel: View {
             .disabled(store.repositories.isEmpty)
         } label: {
             Image(systemName: store.scope.isActive ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                .font(.system(size: 16))
+                .frame(width: 28, height: 28)
         }
+        .fixedSize()
         .help("Filter")
         .accessibilityLabel("Filter")
         Button {
@@ -91,8 +97,10 @@ struct InboxPanel: View {
         } label: {
             ZStack {
                 ProgressView().controlSize(.small).opacity(store.isRefreshing ? 1 : 0)
-                Image(systemName: "arrow.clockwise").opacity(store.isRefreshing ? 0 : 1)
+                Image(systemName: "arrow.clockwise").font(.system(size: 16)).opacity(store.isRefreshing ? 0 : 1)
             }
+            .frame(width: 28, height: 28)
+            .contentShape(Rectangle())
         }
         .keyboardShortcut("r")
         .disabled(store.isRefreshing)
@@ -118,7 +126,10 @@ struct InboxPanel: View {
             Button("Quit Tidy") { NSApp.terminate(nil) }
         } label: {
             Image(systemName: "ellipsis.circle")
+                .font(.system(size: 16))
+                .frame(width: 28, height: 28)
         }
+        .fixedSize()
         .help("More")
         .accessibilityLabel("More")
     }
@@ -144,14 +155,20 @@ struct InboxPanel: View {
             } description: {
                 Text("Tidy reads your notifications with a personal access token (classic).")
             } actions: {
-                Button("Connect…") { openSettings() }
+                Button("Connect…") {
+                    AppSettings.shared.settingsTab = .github
+                    openSettings()
+                }
                     .buttonStyle(.borderedProminent)
             }
         } else if store.issue == .unauthorized {
             ContentUnavailableView {
                 Label("Your GitHub token is no longer valid", systemImage: "exclamationmark.triangle")
             } actions: {
-                Button("Update Token…") { openSettings() }
+                Button("Update Token…") {
+                    AppSettings.shared.settingsTab = .github
+                    openSettings()
+                }
                     .buttonStyle(.borderedProminent)
             }
         } else if store.issue == .missingScope {

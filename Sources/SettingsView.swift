@@ -1,17 +1,10 @@
 import SwiftUI
-import TidyCore
-
-enum SettingsTab: String {
-    case general, github, notifications, filters, about
-}
 
 struct SettingsView: View {
     @Bindable var settings: AppSettings
-    @Environment(InboxStore.self) private var store
-    @AppStorage("settingsTab") private var tab = SettingsTab.general
 
     var body: some View {
-        TabView(selection: $tab) {
+        TabView(selection: $settings.settingsTab) {
             Tab("General", systemImage: "gearshape", value: .general) {
                 GeneralSettings(settings: settings)
             }
@@ -29,15 +22,11 @@ struct SettingsView: View {
             }
         }
         .frame(width: 560)
-        .environment(snapshotStore ?? store)
-        .onAppear { NSApp.activate() }
-    }
-
-    private var snapshotStore: InboxStore? {
-        #if DEBUG
-        SettingsSnapshot.store
-        #else
-        nil
-        #endif
+        .onAppear {
+            #if DEBUG
+            guard SettingsSnapshot.output == nil else { return }
+            #endif
+            NSApp.activate()
+        }
     }
 }

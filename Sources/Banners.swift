@@ -63,10 +63,7 @@ final class Banners: NSObject {
         let repository = item.thread.repository.fullName
         content.title = item.title
         content.subtitle = "\(repository) · \(item.thread.reason.title)"
-        content.body = item.previewMarkdown?
-            .split(whereSeparator: \.isNewline)
-            .first { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-            .map(String.init) ?? ""
+        content.body = item.previewMarkdown.map(MarkdownView.plainFirstLine) ?? ""
         content.threadIdentifier = repository
         content.categoryIdentifier = Self.threadCategory
         content.userInfo = ["url": item.webURL.absoluteString]
@@ -84,7 +81,7 @@ final class Banners: NSObject {
             store.markRead([threadID])
         } else if action == "done" {
             store.markDone([threadID])
-        } else if action == UNNotificationDefaultActionIdentifier, let url {
+        } else if action == UNNotificationDefaultActionIdentifier, let url, url.isGitHubWeb {
             NSWorkspace.shared.open(url)
             store.markRead([threadID])
         }

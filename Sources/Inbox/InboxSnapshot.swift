@@ -63,14 +63,9 @@ enum InboxSnapshot {
                 window.isOpaque = true
                 window.backgroundColor = .windowBackgroundColor
                 window.appearance = NSAppearance(named: appearance)
-                window.setFrameOrigin(NSPoint(x: -10000, y: -10000))
+                SnapshotCapture.hideOffScreen(window)
                 window.orderFrontRegardless()
-                guard !NSScreen.screens.contains(where: { $0.frame.intersects(window.frame) }) else { exit(1) }
-                try? await Task.sleep(for: .seconds(1.5))
-                if let image = image(of: window) {
-                    try? NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])?
-                        .write(to: directory.appending(path: "inbox-\(name)-\(suffix).png"))
-                }
+                await SnapshotCapture.write(window, to: directory.appending(path: "inbox-\(name)-\(suffix).png"))
                 window.orderOut(nil)
             }
         }
@@ -87,14 +82,6 @@ enum InboxSnapshot {
         for _ in 0..<100 where store.inbox.contains(where: { $0.status == .loading }) {
             try? await Task.sleep(for: .milliseconds(20))
         }
-    }
-
-    // cacheDisplay skips Liquid Glass; CGWindowListCreateImage is SDK-obsoleted but still exported and captures own windows without Screen Recording.
-    private static func image(of window: NSWindow) -> CGImage? {
-        typealias CreateImage = @convention(c) (CGRect, CGWindowListOption, CGWindowID, CGWindowImageOption) -> Unmanaged<CGImage>?
-        guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "CGWindowListCreateImage") else { return nil }
-        let create = unsafeBitCast(symbol, to: CreateImage.self)
-        return create(.null, .optionIncludingWindow, CGWindowID(window.windowNumber), [.boundsIgnoreFraming, .bestResolution])?.takeRetainedValue()
     }
 }
 

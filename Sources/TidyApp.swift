@@ -26,7 +26,7 @@ struct TidyApp: App {
 
     private var menuBarInserted: Binding<Bool> {
         #if DEBUG
-        if InboxSnapshot.output != nil { return .constant(false) }
+        if InboxSnapshot.output != nil || SettingsSnapshot.output != nil { return .constant(false) }
         #endif
         return $settings.showMenuBarIcon
     }

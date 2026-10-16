@@ -45,6 +45,10 @@ struct GeneralSettings: View {
             }
 
             Section("Updates") {
+                Toggle("Automatically check for updates", isOn: $settings.checksForUpdatesAutomatically)
+                    .onChange(of: settings.checksForUpdatesAutomatically) { _, isOn in
+                        if isOn { updater.scheduleChecks() } else { updater.stopScheduledChecks() }
+                    }
                 HStack(spacing: 8) {
                     updateStatus
                     Spacer()

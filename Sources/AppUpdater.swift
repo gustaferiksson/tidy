@@ -51,8 +51,12 @@ final class AppUpdater {
             return
         }
         Self.clearStaging()
+        scheduleChecks()
+    }
+
+    func scheduleChecks() {
         // build.sh stamps local builds "<describe>-local", which would otherwise compare older than every release.
-        guard !Self.currentVersion.hasSuffix("-local") else { return }
+        guard Self.isSelfUpdatable, !Self.currentVersion.hasSuffix("-local"), AppSettings.shared.checksForUpdatesAutomatically, timer == nil else { return }
         check()
         timer = Timer.scheduledTimer(withTimeInterval: Self.checkInterval, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.check() }
@@ -60,6 +64,13 @@ final class AppUpdater {
         wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.didWakeNotification, object: nil, queue: .main) { [weak self] _ in
             Task { @MainActor in self?.check() }
         }
+    }
+
+    func stopScheduledChecks() {
+        timer?.invalidate()
+        timer = nil
+        if let wakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(wakeObserver) }
+        wakeObserver = nil
     }
 
     func check(_ trigger: Trigger = .scheduled) {
@@ -98,7 +109,7 @@ final class AppUpdater {
         do {
             staged = (latest, try await Self.downloadVerified(version: latest))
             status = .ready(latest)
-            offer(latest)
+            if trigger == .manual { offer(latest) }
         } catch {
             Self.clearStaging()
             status = .failed(error.localizedDescription)
@@ -112,7 +123,6 @@ final class AppUpdater {
         panel.informativeText = "Tidy will download it, replace itself and relaunch."
         panel.addButton(withTitle: "Install")
         panel.addButton(withTitle: "Later")
-        NSApp.activate()
         guard panel.runModal() == .alertFirstButtonReturn else { return }
         installAndRelaunch()
     }

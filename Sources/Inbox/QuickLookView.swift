@@ -126,7 +126,7 @@ struct QuickLookView: View {
                 }
             }
         } else if let markdown = item.previewMarkdown, !markdown.isEmpty {
-            MarkdownView(markdown)
+            MarkdownView(source: markdown)
         } else {
             Text("No description provided.").foregroundStyle(.secondary)
         }
@@ -175,7 +175,7 @@ struct QuickLookView: View {
     }
 
     private func open(_ item: InboxItem, markingRead: Bool) {
-        NSWorkspace.shared.open(item.webURL)
+        if item.webURL.isGitHubWeb { NSWorkspace.shared.open(item.webURL) }
         if markingRead { store.markRead([item.id]) }
     }
 

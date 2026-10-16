@@ -34,12 +34,3 @@ struct StateGlyphView: View {
         )
     }
 }
-
-func shortAge(of date: Date, now: Date) -> String {
-    let minutes = Int(now.timeIntervalSince(date) / 60)
-    if minutes < 1 { return "now" }
-    if minutes < 60 { return "\(minutes)m" }
-    if minutes < 24 * 60 { return "\(minutes / 60)h" }
-    if minutes < 7 * 24 * 60 { return "\(minutes / (24 * 60))d" }
-    return date.formatted(.dateTime.month(.abbreviated).day())
-}

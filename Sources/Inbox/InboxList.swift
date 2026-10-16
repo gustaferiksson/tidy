@@ -3,6 +3,8 @@ import SwiftUI
 import TidyCore
 
 struct InboxList: View {
+    private static let openLimit = 10
+
     let items: [InboxItem]
     let showsAll: Bool
     @Environment(InboxStore.self) private var store
@@ -40,6 +42,7 @@ struct InboxList: View {
                 ForEach(items) { item in
                     InboxRow(item: item, isDone: false, now: context.date)
                         .listRowInsets(EdgeInsets())
+                        .listRowSeparator(.hidden)
                 }
                 if !store.done.isEmpty {
                     doneHeader
@@ -50,6 +53,7 @@ struct InboxList: View {
                         ForEach(store.done) { item in
                             InboxRow(item: item, isDone: true, now: context.date)
                                 .listRowInsets(EdgeInsets())
+                                .listRowSeparator(.hidden)
                         }
                     }
                 }
@@ -64,8 +68,8 @@ struct InboxList: View {
                 return .handled
             }
             .onKeyPress(.return, phases: .down) { press in
-                guard !selected.isEmpty else { return .ignored }
-                for item in selected { NSWorkspace.shared.open(item.webURL) }
+                guard !selected.isEmpty, selected.count <= Self.openLimit else { return .ignored }
+                for item in selected where item.webURL.isGitHubWeb { NSWorkspace.shared.open(item.webURL) }
                 if !press.modifiers.contains(.option) { store.markRead(selected.map(\.id)) }
                 return .handled
             }
@@ -174,9 +178,10 @@ struct InboxList: View {
             Button("Quick Look") { panel.quickLookID = targets.first?.id }
                 .disabled(targets.count != 1)
             Button("Open on GitHub") {
-                for item in targets { NSWorkspace.shared.open(item.webURL) }
+                for item in targets where item.webURL.isGitHubWeb { NSWorkspace.shared.open(item.webURL) }
                 store.markRead(targets.map(\.id))
             }
+            .disabled(targets.count > Self.openLimit)
             Button("Copy Link") {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(targets.map(\.webURL.absoluteString).joined(separator: "\n"), forType: .string)

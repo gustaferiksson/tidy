@@ -3,7 +3,7 @@
 Tidy runs on macOS 26 only. It lives in the menu bar as a `MenuBarExtra` with the `.window` style and works as a GitHub notifications inbox.
 
 - Pure SwiftUI, with no Dock icon (`LSUIElement`).
-- The panel sits on the system glass and adds no custom backgrounds.
+- The panel sits on Liquid Glass (`.glassEffect`) with a clear window background, and adds no other backgrounds.
 - Every size is a multiple of 4 pt.
 
 ## 1. Surfaces
@@ -199,7 +199,7 @@ With Increase Contrast on, Tidy uses the system colours instead (`.green`, `.pur
 Quick Look is the only detail view. It's pushed inside the panel with `NavigationStack` at the same fixed size, the way Control Center modules drill in. An expanding row can't hold a long Markdown body.
 
 **Opening and moving:**
-- A click selects a row. Space or a double-click opens it.
+- A click opens a row (⌘-click and ⇧-click only extend the selection). Space opens the selected row.
 - Space, Esc, ⌘[ or `chevron.backward` closes it.
 - ↑ and ↓ step through threads without leaving Quick Look.
 
@@ -251,7 +251,7 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 |---|---|
 | ↑ ↓ | Move the selection. In Quick Look, step to the previous or next thread |
 | Space | Open or close Quick Look |
-| ↩ | Open on GitHub and mark read. Opening a thread means you're handling it, as in Mail |
+| ↩ | Open on GitHub and mark read. Opening a thread means you're handling it, as in Mail. Does nothing with more than 10 rows selected |
 | ⌥↩ | Open on GitHub without marking read |
 | E | Done. On a Done row: Move to Inbox |
 | ⇧I / ⇧⌘I | Mark as Read / Mark All as Read |
@@ -261,9 +261,9 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 | Esc | Close Quick Look, otherwise close the panel |
 | ⌘, | Open Settings |
 
-**Hover:** two trailing 24 pt buttons appear, `envelope.open` (Mark as Read) and `checkmark` (Done).
+**Hover:** two plain trailing 24 pt buttons fade in, secondary colour with a pointing-hand cursor and tooltips: `envelope.open` (Mark as Read) and `checkmark` (Done). Rows keep that space free so titles never sit under them. Rows have no separators.
 
-**Swipe:** as in Mail, swiping toward the leading side marks as read and swiping toward the trailing side marks Done.
+**Swipe:** as in Mail, swiping right reveals the leading action, Mark as Read, and swiping left reveals the trailing action, Done (Move to Inbox on a Done row).
 
 **Context menu:**
 - Quick Look, Open on GitHub, Copy Link
@@ -344,10 +344,16 @@ The standard `Settings` scene with toolbar tabs, about 480 pt wide.
 
 | Tab | Controls |
 |---|---|
-| General | Launch at Login (`SMAppService.mainApp`), the Menu Bar picker, Automatically Check for Updates, **Check Now** |
+| General | Launch at Login (`SMAppService.mainApp`), the Menu Bar picker, Automatically check for updates (on by default: at launch, every 24 h and on wake), **Check for Updates** |
 | GitHub | When signed out: a `SecureField` labelled "Personal access token (classic)", a **Create Token…** link to `https://github.com/settings/tokens/new?scopes=notifications,repo&description=Tidy`, and **Connect**. Connect calls `GET /user` and requires `repo` in `X-OAuth-Scopes`. A token that starts with `github_pat_` is rejected inline before any network call: "Fine-grained tokens can't read notifications. Use a classic token." Other errors also show inline under the field. When signed in: avatar, login, a scope checklist, **Replace Token…** and **Disconnect**. The token lives in the Keychain (generic password, this device only) |
 | Notifications | The system permission status, with **Open System Settings…** for sound, style and turning banners off. A "Notify for" checklist of every reason, all on by default, grouped as Participating, Security and Activity |
 | Filters | The rule list (+ and −, drag to reorder), a sheet for editing a rule, and the muted threads |
 | About | Icon, name, version, and a GitHub link |
 
 The "Notify for" list covers reasons only. Filters handle everything else.
+
+**Connect…** and **Update Token…** in the panel open Settings on the GitHub tab.
+
+**Updates:** a scheduled check downloads a newer release quietly and never interrupts: the panel footer and the ⋯ menu then offer **Install X**. Only a manual check shows an alert.
+
+**Links:** the panel, Quick Look and banners open only `https` links on `github.com`, its subdomains and `*.githubusercontent.com`. Anything else in a comment body is ignored.
