@@ -7,11 +7,13 @@ struct TidyApp: App {
     @Bindable private var settings = AppSettings.shared
 
     var body: some Scene {
-        MenuBarExtra(isInserted: $settings.showMenuBarIcon) {
-            InboxWindow(updater: appDelegate.updater)
+        MenuBarExtra(isInserted: menuBarInserted) {
+            InboxPanel()
                 .environment(appDelegate.store)
+                .environment(appDelegate.panel)
+                .environment(appDelegate.updater)
         } label: {
-            Image(systemName: "tray")
+            MenuBarLabel(store: appDelegate.store, settings: settings)
         }
         .menuBarExtraStyle(.window)
 
@@ -21,54 +23,52 @@ struct TidyApp: App {
                 .environment(appDelegate.store)
         }
     }
-}
 
-private struct InboxWindow: View {
-    let updater: AppUpdater
-
-    var body: some View {
-        VStack(spacing: 0) {
-            ContentUnavailableView("Inbox coming soon", systemImage: "tray")
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            Divider()
-            HStack(spacing: 8) {
-                UpdateButton(updater: updater)
-                Spacer()
-                SettingsLink { Text("Settings…") }
-                    .keyboardShortcut(",")
-                Button("Quit") { NSApp.terminate(nil) }
-                    .keyboardShortcut("q")
-            }
-            .buttonStyle(.borderless)
-            .padding(12)
-        }
-        .frame(width: 360, height: 480)
+    private var menuBarInserted: Binding<Bool> {
+        #if DEBUG
+        if InboxSnapshot.output != nil { return .constant(false) }
+        #endif
+        return $settings.showMenuBarIcon
     }
 }
 
-private struct UpdateButton: View {
-    let updater: AppUpdater
+private struct MenuBarLabel: View {
+    let store: InboxStore
+    let settings: AppSettings
 
     var body: some View {
-        if let staged = updater.staged {
-            Button("Install \(staged.version) and Relaunch", action: updater.installAndRelaunch)
-        } else {
-            Button(checkTitle) { updater.check(.manual) }
-                .disabled(updater.isBusy)
-                .help(note ?? "")
-        }
+        Image(nsImage: menuBarImage(store: store, style: settings.menuBarStyle))
     }
+}
 
-    private var checkTitle: String {
-        if updater.status == .checking { return "Checking…" }
-        if updater.status == .downloading { return "Downloading…" }
-        return "Check for Updates…"
+// MenuBarExtra flattens its label to plain title text, so the glyph and count are drawn into one template image.
+@MainActor
+func menuBarImage(store: InboxStore, style: MenuBarStyle) -> NSImage {
+    let isBroken = !store.isSignedIn || store.issue == .unauthorized || store.issue == .missingScope
+    let count = isBroken ? 0 : store.unreadCount
+    let font = NSFont.menuBarFont(ofSize: 0)
+    let symbolName = count > 0 ? "tray.badge" : "tray"
+    let showsSymbol = count == 0 || style != .countOnly
+    let showsCount = count > 0 && style != .iconOnly
+    let symbol = showsSymbol
+        ? NSImage(systemSymbolName: symbolName, accessibilityDescription: nil)?
+            .withSymbolConfiguration(NSImage.SymbolConfiguration(pointSize: font.pointSize, weight: .regular))
+        : nil
+    let title = NSAttributedString(
+        string: showsCount ? (count > 99 ? "99+" : "\(count)") : "",
+        attributes: [.font: NSFont.monospacedDigitSystemFont(ofSize: font.pointSize, weight: .regular)]
+    )
+    let symbolSize = symbol?.size ?? .zero
+    let titleSize = title.size()
+    let gap: CGFloat = symbol != nil && showsCount ? 4 : 0
+    let height = max(symbolSize.height, titleSize.height).rounded(.up)
+    let size = NSSize(width: (symbolSize.width + gap + titleSize.width).rounded(.up), height: height)
+    let image = NSImage(size: size, flipped: false) { _ in
+        symbol?.draw(in: NSRect(x: 0, y: (height - symbolSize.height) / 2, width: symbolSize.width, height: symbolSize.height))
+        title.draw(at: NSPoint(x: symbolSize.width + gap, y: (height - titleSize.height) / 2))
+        return true
     }
-
-    private var note: String? {
-        if case .upToDate(let version) = updater.status { return "Tidy \(version) is the latest version." }
-        if case .blocked(let message) = updater.status { return message }
-        if case .failed(let message) = updater.status { return message }
-        return nil
-    }
+    image.isTemplate = true
+    image.accessibilityDescription = count > 0 ? "Tidy, \(count) unread" : "Tidy"
+    return image
 }
