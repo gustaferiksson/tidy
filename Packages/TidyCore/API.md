@@ -80,7 +80,7 @@ All are synchronous and optimistic: state changes at once, the GitHub call goes 
 | `dismissFailure()` | Clears `failure` | none |
 | `loadDetails(for id: String)` | Quick Look Retry: refetches subject data | `GET subject.url` etc. |
 
-`markRead` and `markDone` also accept ids not loaded yet (banner actions right after relaunch): they apply, not undoable, after the next fetch that lists the thread. These are kept in memory only.
+`markRead` and `markDone` also accept ids not loaded yet (banner actions right after relaunch): they apply, not undoable, on the next fetch that returns a list (a 304 keeps them waiting). Ids that fetch doesn't list are dropped. Kept in memory only.
 
 On failure the affected rows roll back and `failure` is set. Offline failures stay queued instead. The queue is persisted (`pending.json`) and resent on next `start()`.
 
@@ -149,6 +149,7 @@ The store already applies: baseline-only first fetch after launch or token chang
 
 `GitHubClient(token:session:baseURL:cache:)` is a `Sendable` struct the store uses internally. Public for Settings and tests: `validate()`, `notifications(since:ifModifiedSince:)`, `details(for:previous:)`, `markRead`, `remove`, `markAllRead(lastReadAt:repository:)`, `mute`, `unmute`, `get(_:from:)`, `GitHubClient.since(now:)`.
 
+- The token is only sent to `baseURL`'s scheme and host: any other URL (subject, comment, `Link` next page) fails with `.forbidden`, and a foreign next page ends paging.
 - `GitHubError`: `.fineGrainedToken .unauthorized .missingScopes([String]) .ssoRequired(organization:url:) .rateLimited(resetsAt:) .offline .forbidden .notFound .server(status:) .unexpectedStatus(Int) .decoding`; `message` is the inline text for Settings.
 - `WebLink.url(for:details:)`, `WebLink.fallback(for:repository:)`, `WebLink.webURL(forAPI:)`.
 - `TokenStorage` protocol: `read() throws -> String?` (nil = no token, throw = Keychain error), `save`, `delete`. A non-throwing `read()` still conforms. `KeychainTokenStore(service: "dev.gustaf.Tidy", account: "github-token")`: generic password, this device only, in the data protection keychain. Builds without an application identifier (ad-hoc, `swift test`) get `errSecMissingEntitlement` there and fall back to the legacy keychain; reads also fall back so a legacy item is still found. Saves update in place, never delete-then-add. Set `TIDY_KEYCHAIN_TESTS=1` to run the real Keychain round-trip test (throwaway service name).

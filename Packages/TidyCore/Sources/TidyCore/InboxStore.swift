@@ -172,38 +172,39 @@ public final class InboxStore {
     if issue == .keychainUnavailable { readToken() }
     guard let client, !isRefreshing else { return pollInterval }
     isRefreshing = true
-    defer { isRefreshing = false }
+    let fetch: NotificationsFetch
     do {
-      let fetch = try await client.notifications(since: GitHubClient.since(now: now()), ifModifiedSince: lastModified)
-      guard client.token == self.client?.token else { return nil }
-      if let scopes = fetch.scopes {
-        account?.scopes = scopes
-        guard scopes.contains(GitHubClient.requiredScope) else {
-          issue = .missingScope
-          return nil
-        }
-      }
+      defer { isRefreshing = false }
+      fetch = try await client.notifications(since: GitHubClient.since(now: now()), ifModifiedSince: lastModified)
       if account == nil, let validated = try? await client.validate(), client.token == self.client?.token {
         account = validated
         save(validated, as: "account.json")
       }
-      lastModified = fetch.lastModified
-      pollInterval = fetch.pollInterval
-      consecutiveFailures = 0
-      if case .ssoRequired = issue {} else { issue = nil }
-      for change in pending where commitTasks[change.id] == nil { schedule(change, after: .zero) }
-      lastSync = now()
-      hasLoaded = true
-      if let threads = fetch.threads {
-        isCapped = !fetch.isComplete
-        await merge(threads, isComplete: fetch.isComplete)
-      }
-      return pollInterval
     } catch is CancellationError {
       return nil
     } catch {
       return handle(error as? GitHubError ?? .decoding)
     }
+    guard client.token == self.client?.token else { return nil }
+    if let scopes = fetch.scopes {
+      account?.scopes = scopes
+      guard scopes.contains(GitHubClient.requiredScope) else {
+        issue = .missingScope
+        return nil
+      }
+    }
+    lastModified = fetch.lastModified
+    pollInterval = fetch.pollInterval
+    consecutiveFailures = 0
+    if case .ssoRequired = issue {} else { issue = nil }
+    for change in pending where commitTasks[change.id] == nil { schedule(change, after: .zero) }
+    lastSync = now()
+    hasLoaded = true
+    if let threads = fetch.threads {
+      isCapped = !fetch.isComplete
+      await merge(threads, isComplete: fetch.isComplete)
+    }
+    return pollInterval
   }
 
   public func loadDetails(for id: String) {
@@ -416,7 +417,6 @@ public final class InboxStore {
       runRuleActions()
       return
     }
-    isRefreshing = false
     await announce(candidates, after: enrichment)
   }
 
