@@ -156,4 +156,4 @@ The store already applies: baseline-only first fetch after launch or token chang
 
 ## Files in the support directory
 
-`rules.json`, `silenced-reasons.json`, `done.json`, `pending.json`, `muted.json`, `account.json`, and `Cache/` (ETag responses). The token is only in the Keychain.
+`rules.json`, `silenced-reasons.json`, `done.json`, `pending.json`, `muted.json`, `account.json`, and `Cache/` (ETag responses). The token is only in the Keychain. A file that fails to decode is renamed to `NAME.corrupt` (replacing an older one) and the store starts from empty for it.

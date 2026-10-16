@@ -683,8 +683,16 @@ public final class InboxStore {
   }
 
   private func load<T: Decodable>(_ name: String) -> T? {
-    guard let data = try? Data(contentsOf: directory.appending(path: name)) else { return nil }
-    return try? JSONDecoder().decode(T.self, from: data)
+    let url = directory.appending(path: name)
+    guard let data = try? Data(contentsOf: url) else { return nil }
+    do {
+      return try JSONDecoder().decode(T.self, from: data)
+    } catch {
+      let aside = directory.appending(path: "\(name).corrupt")
+      try? FileManager.default.removeItem(at: aside)
+      try? FileManager.default.moveItem(at: url, to: aside)
+      return nil
+    }
   }
 
   private func save(_ value: some Encodable, as name: String) {

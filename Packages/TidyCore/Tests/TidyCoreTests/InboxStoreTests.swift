@@ -658,6 +658,17 @@ struct InboxStoreTests {
     #expect(store.inbox.first { $0.id == "101" }?.state == .draft)
   }
 
+  @Test func undecodableFilesAreMovedAsideNotOverwritten() async throws {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let garbage = Data("{ not json".utf8)
+    try garbage.write(to: directory.appending(path: "done.json"))
+    let store = makeStore()
+    await store.refresh()
+    store.markDone(["101"])
+    #expect(try Data(contentsOf: directory.appending(path: "done.json.corrupt")) == garbage)
+    #expect(makeStore().done.map(\.id) == ["101"])
+  }
+
   @Test func disconnectClearsAccountData() async {
     let store = makeStore()
     await store.refresh()
