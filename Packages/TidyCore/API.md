@@ -125,7 +125,7 @@ The store already applies: baseline-only first fetch after launch or token chang
 
 ## StateGlyph
 
-`StateGlyph(kind:state:severity:)` gives `octicon: Octicon`, `tone: StateTone` and `label` (VoiceOver and tooltip, "Pull request, draft"). `StateGlyph.baseOcticon(for:)` for "State unavailable".
+`StateGlyph(kind:state:severity:)` gives `octicon: Octicon`, `tone: StateTone` and `label` (VoiceOver and tooltip, "Pull request, draft"). `StateGlyph.baseOcticon(for:)` for "State unavailable". Kind-to-Octicon mapping is the FLOW §5 table; Dependabot alerts use `.alert` (warning triangle) tinted by highest severity.
 
 `Octicon`: one case per GitHub Octicon the glyphs use. `rawValue` is the Octicon name and the custom symbol's asset name in the app's `Resources/Assets.xcassets/Octicons`, so render it with `Image(octicon.rawValue)` and size it with `.font` like an SF Symbol.
 

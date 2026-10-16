@@ -28,7 +28,7 @@ public enum Octicon: String, CaseIterable, Sendable {
   case checkCircle = "check-circle"
   case stop
   case bell
-  case dependabot
+  case alert
   case key
   case shield
   case shieldCheck = "shield-check"
@@ -88,7 +88,7 @@ public struct StateGlyph: Hashable, Sendable {
       case .cancelled: (.stop, .grey)
       default: (.bell, .grey)
       }
-    case .dependabotAlerts: (.dependabot, state == nil ? .grey : StateTone(severity: severity))
+    case .dependabotAlerts: (.alert, state == nil ? .grey : StateTone(severity: severity))
     case .secretScanningAlert: (.key, state == nil ? .grey : .red)
     case .repositoryAdvisory: (.shield, state == nil ? .grey : StateTone(severity: severity))
     case .securityAdvisoryCredit: (.shieldCheck, .purple)

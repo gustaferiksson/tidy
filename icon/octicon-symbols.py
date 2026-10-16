@@ -7,7 +7,7 @@ NAMES = [
     "git-pull-request", "git-pull-request-draft", "git-pull-request-closed", "git-merge",
     "issue-opened", "issue-closed", "skip", "comment-discussion", "discussion-closed",
     "tag", "git-commit", "x-circle", "check-circle", "stop", "bell",
-    "dependabot", "key", "shield", "shield-check", "person-add",
+    "alert", "key", "shield", "shield-check", "person-add",
 ]
 SCALE = 79 / 16
 SIDE_BEARING = 7.0

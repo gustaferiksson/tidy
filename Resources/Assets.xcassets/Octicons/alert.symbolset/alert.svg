@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg version="1.1" xmlns="http://www.w3.org/2000/svg" width="3300" height="2200">
+ <g id="Notes">
+  <rect height="2200" id="artboard" style="fill:white;opacity:1" width="3300" x="0" y="0"/>
+  <text id="template-version" style="stroke:none;fill:black;font-family:sans-serif;font-size:13;text-anchor:end;" transform="matrix(1 0 0 1 3036 1933)">Template v.4.0</text>
+  <text id="descriptive-name" style="stroke:none;fill:black;font-family:sans-serif;font-size:13;text-anchor:end;" transform="matrix(1 0 0 1 3036 1969)">Octicon alert (MIT, GitHub Inc.)</text>
+ </g>
+ <g id="Guides">
+  <line id="Baseline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="696" y2="696"/>
+  <line id="Capline-S" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="625.541" y2="625.541"/>
+  <line id="Baseline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1126" y2="1126"/>
+  <line id="Capline-M" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1055.541" y2="1055.541"/>
+  <line id="Baseline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1556" y2="1556"/>
+  <line id="Capline-L" style="fill:none;stroke:#27AAE1;opacity:1;stroke-width:0.5;" x1="263" x2="3036" y1="1485.541" y2="1485.541"/>
+  <line id="left-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="513.211" x2="513.211" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Ultralight-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="606.211" x2="606.211" y1="600.785" y2="720.121"/>
+  <line id="left-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1403.34" x2="1403.34" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Regular-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="1496.34" x2="1496.34" y1="600.785" y2="720.121"/>
+  <line id="left-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2886.9" x2="2886.9" y1="600.785" y2="720.121"/>
+  <line id="right-margin-Black-S" style="fill:none;stroke:#00AEEF;stroke-width:0.5;opacity:1.0;" x1="2979.9" x2="2979.9" y1="600.785" y2="720.121"/>
+ </g>
+ <g id="Symbols">
+  <g id="Ultralight-S" transform="matrix(1 0 0 1 513.211 696)">
+   <path d="M 38.8814 -69.5599 c 3.2538 -6.0929 11.9833 -6.0929 15.2371 0 l 30.0299 56.1789 A 8.6406 8.6406 0 0 1 76.5299 -0.667 H 16.4701 a 8.6406 8.6406 0 0 1 -7.6186 -12.7141 Z m 8.7048 3.4908 a 1.2344 1.2344 0 0 0 -2.1725 0 L 15.3839 -9.8903 a 1.2344 1.2344 0 0 0 1.0862 1.817 h 60.0598 a 1.2344 1.2344 0 0 0 1.0862 -1.817 Z m 2.6169 19.7303 v 12.3438 a 3.7031 3.7031 0 0 1 -7.4062 0 v -12.3438 a 3.7031 3.7031 0 0 1 7.4062 0 Z M 51.4375 -20.417 a 4.9375 4.9375 0 1 1 -9.875 0 4.9375 4.9375 0 0 1 9.875 0 Z"/>
+  </g>
+  <g id="Regular-S" transform="matrix(1 0 0 1 1403.34 696)">
+   <path d="M 38.8814 -69.5599 c 3.2538 -6.0929 11.9833 -6.0929 15.2371 0 l 30.0299 56.1789 A 8.6406 8.6406 0 0 1 76.5299 -0.667 H 16.4701 a 8.6406 8.6406 0 0 1 -7.6186 -12.7141 Z m 8.7048 3.4908 a 1.2344 1.2344 0 0 0 -2.1725 0 L 15.3839 -9.8903 a 1.2344 1.2344 0 0 0 1.0862 1.817 h 60.0598 a 1.2344 1.2344 0 0 0 1.0862 -1.817 Z m 2.6169 19.7303 v 12.3438 a 3.7031 3.7031 0 0 1 -7.4062 0 v -12.3438 a 3.7031 3.7031 0 0 1 7.4062 0 Z M 51.4375 -20.417 a 4.9375 4.9375 0 1 1 -9.875 0 4.9375 4.9375 0 0 1 9.875 0 Z"/>
+  </g>
+  <g id="Black-S" transform="matrix(1 0 0 1 2886.9 696)">
+   <path d="M 38.8814 -69.5599 c 3.2538 -6.0929 11.9833 -6.0929 15.2371 0 l 30.0299 56.1789 A 8.6406 8.6406 0 0 1 76.5299 -0.667 H 16.4701 a 8.6406 8.6406 0 0 1 -7.6186 -12.7141 Z m 8.7048 3.4908 a 1.2344 1.2344 0 0 0 -2.1725 0 L 15.3839 -9.8903 a 1.2344 1.2344 0 0 0 1.0862 1.817 h 60.0598 a 1.2344 1.2344 0 0 0 1.0862 -1.817 Z m 2.6169 19.7303 v 12.3438 a 3.7031 3.7031 0 0 1 -7.4062 0 v -12.3438 a 3.7031 3.7031 0 0 1 7.4062 0 Z M 51.4375 -20.417 a 4.9375 4.9375 0 1 1 -9.875 0 4.9375 4.9375 0 0 1 9.875 0 Z"/>
+  </g>
+ </g>
+</svg>

@@ -35,7 +35,7 @@ struct StateGlyphTests {
   ])
   func dependabotUsesHighestSeverity(severity: Severity?, tone: StateTone) {
     let glyph = StateGlyph(kind: .dependabotAlerts, state: .open, severity: severity)
-    #expect(glyph.octicon == .dependabot)
+    #expect(glyph.octicon == .alert)
     #expect(glyph.tone == tone)
     #expect(StateGlyph(kind: .repositoryAdvisory, state: .open, severity: severity).tone == tone)
   }

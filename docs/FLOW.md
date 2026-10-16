@@ -136,7 +136,7 @@ With Increase Contrast on, Tidy uses the system colours instead (`.green`, `.pur
 | Release | `tag` | grey |
 | Commit | `git-commit` | grey |
 | CI failed / succeeded / cancelled | `x-circle` / `check-circle` / `stop` | red / green / grey |
-| Dependabot (`RepositoryDependabotAlertsThread`, legacy `RepositoryVulnerabilityAlert`) | `dependabot` | Highest open severity: critical red, high orange, moderate yellow, low grey |
+| Dependabot (`RepositoryDependabotAlertsThread`, legacy `RepositoryVulnerabilityAlert`) | `alert` | Highest open severity: critical red, high orange, moderate yellow, low grey |
 | `SecretScanningAlert` | `key` | red |
 | `RepositoryAdvisory` | `shield` | severity colour |
 | `SecurityAdvisoryCredit` | `shield-check` | purple |
