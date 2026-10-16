@@ -29,6 +29,7 @@ struct MarkdownView: View {
                             .font(.system(.callout, design: .monospaced))
                             .fixedSize()
                             .padding(8)
+                            .background(OverlayScrollers())
                     }
                     .background(.quaternary.opacity(0.6), in: .rect(cornerRadius: 8))
                 case .listItem(let marker, let depth):

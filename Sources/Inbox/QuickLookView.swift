@@ -36,6 +36,7 @@ struct QuickLookView: View {
                 ScrollView {
                     details(of: item)
                         .padding(16)
+                        .background(OverlayScrollers())
                 }
                 Divider()
                 actions(for: item)
