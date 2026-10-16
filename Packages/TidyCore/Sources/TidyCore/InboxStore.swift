@@ -57,6 +57,7 @@ public final class InboxStore {
   @ObservationIgnored private var enriching: Set<String> = []
   @ObservationIgnored private var staleDetails: [String: SubjectDetails] = [:]
   @ObservationIgnored private var ruleActed: Set<String> = []
+  @ObservationIgnored private var deferred: [String: PendingAction] = [:]
 
   public init(
     directory: URL = InboxStore.defaultDirectory,
@@ -211,12 +212,17 @@ public final class InboxStore {
   }
 
   public func markRead(_ ids: [String]) {
+    let known = Set((inbox + done).map(\.id))
+    for id in ids where !known.contains(id) { deferred[id] = .markRead }
     perform(.markRead, items: (inbox + done).filter { ids.contains($0.id) && $0.isUnread })
   }
 
   public func markDone(_ ids: [String]) {
+    let known = Set((inbox + done).map(\.id))
+    for id in ids where !known.contains(id) { deferred[id] = .done }
     perform(.done, items: inbox.filter { ids.contains($0.id) })
   }
+
 
   public func moveToInbox(_ ids: [String]) {
     let moving = done.filter { ids.contains($0.id) }
@@ -357,6 +363,10 @@ public final class InboxStore {
     }
     for change in pending { apply(change) }
     save(done, as: "done.json")
+    let waiting = deferred
+    deferred = [:]
+    perform(.markRead, items: (inbox + done).filter { waiting[$0.id] == .markRead && $0.isUnread }, delay: .zero)
+    perform(.done, items: inbox.filter { waiting[$0.id] == .done }, delay: .zero)
 
     let enrichment = Task { await enrich((inbox + done).filter { $0.status == .loading && !enriching.contains($0.id) }) }
     let newest = threads.map(\.updatedAt).max()
@@ -624,6 +634,7 @@ public final class InboxStore {
     commitTasks = [:]
     pending = []
     undoableChange = nil
+    deferred = [:]
     done = []
     muted = []
     failure = nil

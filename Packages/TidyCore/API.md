@@ -80,6 +80,8 @@ All are synchronous and optimistic: state changes at once, the GitHub call goes 
 | `dismissFailure()` | Clears `failure` | none |
 | `loadDetails(for id: String)` | Quick Look Retry: refetches subject data | `GET subject.url` etc. |
 
+`markRead` and `markDone` also accept ids not loaded yet (banner actions right after relaunch): they apply, not undoable, after the next fetch that lists the thread. These are kept in memory only.
+
 On failure the affected rows roll back and `failure` is set. Offline failures stay queued instead. The queue is persisted (`pending.json`) and resent on next `start()`.
 
 ### Banner events

@@ -317,6 +317,21 @@ struct InboxStoreTests {
     relaunched.stop()
   }
 
+  @Test func bannerActionsBeforeFirstPollApplyOnceLoaded() async {
+    let store = makeStore()
+    store.markDone(["101"])
+    store.markRead(["103"])
+    #expect(store.pending.isEmpty)
+    await store.refresh()
+    #expect(store.done.map(\.id) == ["101"])
+    #expect(store.inbox.first { $0.id == "103" }?.isUnread == false)
+    #expect(store.undoableChange == nil)
+    await store.flushPending()
+    #expect(Set(requests("PATCH")) == ["/notifications/threads/101", "/notifications/threads/103"])
+    await store.refresh()
+    #expect(store.done.map(\.id) == ["101"])
+  }
+
   @Test func pendingChangesSurviveAPoll() async {
     let store = makeStore()
     await store.refresh()
