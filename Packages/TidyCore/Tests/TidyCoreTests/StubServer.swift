@@ -116,3 +116,15 @@ func makeThreads(count: Int, startingAt start: Int = 1, from date: Date = Date(t
       updatedAt: date.addingTimeInterval(-Double(index) * 60), subject: template.subject, repository: template.repository)
   }
 }
+
+final class Locked<Value: Sendable>: Sendable {
+  private let mutex: Mutex<Value>
+
+  init(_ value: Value) {
+    mutex = Mutex(value)
+  }
+
+  func withLock<Result>(_ body: (inout Value) -> Result) -> Result {
+    mutex.withLock { body(&$0) }
+  }
+}
