@@ -224,7 +224,6 @@ public final class InboxStore {
     perform(.done, items: inbox.filter { ids.contains($0.id) })
   }
 
-
   public func moveToInbox(_ ids: [String]) {
     let moving = done.filter { ids.contains($0.id) }
     let moved = Set(moving.map(\.id))
