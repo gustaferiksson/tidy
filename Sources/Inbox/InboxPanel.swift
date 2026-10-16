@@ -249,6 +249,9 @@ struct InboxPanel: View {
         ZStack {
             Button("Unread") { showsAll = false }.keyboardShortcut("1")
             Button("All") { showsAll = true }.keyboardShortcut("2")
+            Button("Select All") { panel.selection = Set((items + (doneExpanded ? store.done : [])).map(\.id)) }
+                .keyboardShortcut("a")
+                .disabled(panel.quickLookID != nil)
             Button("Mark All as Read", action: store.markAllRead).keyboardShortcut("i", modifiers: [.command, .shift])
             SettingsLink { Text("Settings…") }.keyboardShortcut(",")
             Button("Quit Tidy") { NSApp.terminate(nil) }.keyboardShortcut("q")
