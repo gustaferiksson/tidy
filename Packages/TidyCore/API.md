@@ -53,7 +53,7 @@ Network loss pauses polling and sets `issue = .offline`; reconnect resumes polli
 | `isRefreshing` | Spinner on the refresh button |
 | `isCapped` | 200-thread cap hit: footer "Showing the last 14 days" |
 | `lastSync: Date?` | "Updated 1m ago" |
-| `issue: SyncIssue?` | `.offline`, `.rateLimited(resumesAt:)`, `.ssoRequired(organization:url:)`, `.notResponding` (third failed poll in a row), `.unauthorized`, `.missingScope` |
+| `issue: SyncIssue?` | `.offline`, `.rateLimited(resumesAt:)`, `.ssoRequired(organization:url:)`, `.notResponding` (third failed poll in a row), `.unauthorized`, `.missingScope`, `.keychainUnavailable` (the token couldn't be read; `isSignedIn` stays true and every poll retries the read) |
 | `isOnline: Bool` | Current network path |
 | `pending: [PendingChange]`, `undoableChange: PendingChange?` | Undo toast: `undoableChange.message` ("Marked 3 as done"); nil means hide the toast. Only the latest action is undoable, and only for `commitDelay` after it (or until it is sent). Changes still queued offline or restored from `pending.json` are never undoable |
 | `failure: ActionFailure?` | Footer "Couldn't update 2 notifications · Retry" (`message`, `count`) |
@@ -151,7 +151,7 @@ The store already applies: baseline-only first fetch after launch or token chang
 
 - `GitHubError`: `.fineGrainedToken .unauthorized .missingScopes([String]) .ssoRequired(organization:url:) .rateLimited(resetsAt:) .offline .forbidden .notFound .server(status:) .unexpectedStatus(Int) .decoding`; `message` is the inline text for Settings.
 - `WebLink.url(for:details:)`, `WebLink.fallback(for:repository:)`, `WebLink.webURL(forAPI:)`.
-- `TokenStorage` protocol; `KeychainTokenStore(service: "dev.gustaf.Tidy", account: "github-token")`, generic password, this device only.
+- `TokenStorage` protocol: `read() throws -> String?` (nil = no token, throw = Keychain error), `save`, `delete`. A non-throwing `read()` still conforms. `KeychainTokenStore(service: "dev.gustaf.Tidy", account: "github-token")`: generic password, this device only, in the data protection keychain. Builds without an application identifier (ad-hoc, `swift test`) get `errSecMissingEntitlement` there and fall back to the legacy keychain; reads also fall back so a legacy item is still found. Saves update in place, never delete-then-add. Set `TIDY_KEYCHAIN_TESTS=1` to run the real Keychain round-trip test (throwaway service name).
 - `InboxStore.networkAvailability() -> AsyncStream<Bool>` wraps `NWPathMonitor`.
 
 ## Files in the support directory

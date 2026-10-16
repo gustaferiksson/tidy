@@ -85,10 +85,7 @@ public final class InboxStore {
     pending = load("pending.json") ?? []
     muted = load("muted.json") ?? []
     account = load("account.json")
-    if let token = tokenStorage.read() {
-      client = GitHubClient(token: token, session: session, baseURL: baseURL, cache: cache)
-      isSignedIn = true
-    }
+    readToken()
   }
 
   public var visibleItems: [InboxItem] {
@@ -173,6 +170,7 @@ public final class InboxStore {
 
   @discardableResult
   public func refresh() async -> Duration? {
+    if issue == .keychainUnavailable { readToken() }
     guard let client, !isRefreshing else { return pollInterval }
     isRefreshing = true
     defer { isRefreshing = false }
@@ -316,12 +314,24 @@ public final class InboxStore {
   private func restartPolling() {
     let previous = pollTask
     previous?.cancel()
-    guard client != nil, isRunning, !isPaused, isOnline else { return }
+    guard isSignedIn, isRunning, !isPaused, isOnline else { return }
     pollTask = Task { [weak self] in
       await previous?.value
       while !Task.isCancelled, let delay = await self?.refresh() {
         try? await Task.sleep(for: delay)
       }
+    }
+  }
+
+  private func readToken() {
+    do {
+      let token = try tokenStorage.read()
+      client = token.map { GitHubClient(token: $0, session: session, baseURL: baseURL, cache: cache) }
+      isSignedIn = token != nil
+      if issue == .keychainUnavailable { issue = nil }
+    } catch {
+      isSignedIn = true
+      issue = .keychainUnavailable
     }
   }
 

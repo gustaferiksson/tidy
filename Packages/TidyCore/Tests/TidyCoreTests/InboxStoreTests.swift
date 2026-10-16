@@ -16,6 +16,28 @@ final class MemoryTokenStorage: TokenStorage {
   func delete() throws { token.withLock { $0 = nil } }
 }
 
+final class FlakyKeychain: TokenStorage {
+  private let failures: Mutex<Int>
+  let token: String
+
+  init(token: String, failures: Int) {
+    self.token = token
+    self.failures = Mutex(failures)
+  }
+
+  func read() throws -> String? {
+    let failing = failures.withLock { count in
+      defer { count -= 1 }
+      return count > 0
+    }
+    if failing { throw KeychainError(status: errSecInteractionNotAllowed) }
+    return token
+  }
+
+  func save(_ token: String) throws {}
+  func delete() throws {}
+}
+
 final class EventRecorder: Sendable {
   private let events = Locked<[InboxEvent]>([])
 
@@ -166,6 +188,20 @@ struct InboxStoreTests {
     await store.refresh()
     #expect(store.account?.user.login == "octocat")
     #expect(makeStore().account?.user.login == "octocat")
+  }
+
+  @Test func keychainReadErrorIsAnIssueNotASignOut() async {
+    let store = InboxStore(
+      directory: directory, tokenStorage: FlakyKeychain(token: server.token, failures: 2), session: server.session,
+      networkPaths: AsyncStream { _ in }, now: { Self.now })
+    #expect(store.isSignedIn)
+    #expect(store.issue == .keychainUnavailable)
+    #expect(await store.refresh() == .seconds(60))
+    #expect(store.issue == .keychainUnavailable)
+    #expect(store.isSignedIn)
+    await store.refresh()
+    #expect(store.issue == nil)
+    #expect(store.inbox.count == 8)
   }
 
   @Test func connectRejectsFineGrainedTokens() async {

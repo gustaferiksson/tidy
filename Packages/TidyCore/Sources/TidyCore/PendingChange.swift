@@ -80,6 +80,7 @@ public enum SyncIssue: Hashable, Sendable {
   case notResponding
   case unauthorized
   case missingScope
+  case keychainUnavailable
 }
 
 public enum InboxEvent: Hashable, Sendable {
