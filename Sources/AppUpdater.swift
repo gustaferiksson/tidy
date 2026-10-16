@@ -21,7 +21,7 @@ final class AppUpdater {
     }
 
     nonisolated static let releasesURL = URL(string: "https://github.com/gustaferiksson/tidy/releases/latest")!
-    nonisolated static let requirement = "=anchor apple generic and certificate leaf[subject.OU] = \"82K3YC8HVF\" and identifier \"dev.gustaf.Tidy\""
+    nonisolated static let requirement = "=anchor apple generic and certificate leaf[subject.OU] = \"82K3YC8HVF\" and identifier \"dev.gustaf.tidy\""
     nonisolated static let currentVersion = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0"
     private static let checkInterval: TimeInterval = 24 * 60 * 60
     nonisolated private static let stagingPrefix = ".tidy-update-"

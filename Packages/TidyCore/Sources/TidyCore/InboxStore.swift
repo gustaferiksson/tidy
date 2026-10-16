@@ -5,7 +5,7 @@ import Observation
 @MainActor
 @Observable
 public final class InboxStore {
-  public static let defaultDirectory = URL.applicationSupportDirectory.appending(path: "dev.gustaf.Tidy")
+  public static let defaultDirectory = URL.applicationSupportDirectory.appending(path: "dev.gustaf.tidy")
   public static let summaryThreshold = 5
 
   public private(set) var inbox: [InboxItem] = []
@@ -103,7 +103,7 @@ public final class InboxStore {
       let monitor = NWPathMonitor()
       monitor.pathUpdateHandler = { continuation.yield($0.status == .satisfied) }
       continuation.onTermination = { _ in monitor.cancel() }
-      monitor.start(queue: DispatchQueue(label: "dev.gustaf.Tidy.network"))
+      monitor.start(queue: DispatchQueue(label: "dev.gustaf.tidy.network"))
     }
   }
 

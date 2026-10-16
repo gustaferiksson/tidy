@@ -15,7 +15,7 @@ public struct KeychainTokenStore: TokenStorage {
   public let service: String
   public let account: String
 
-  public init(service: String = "dev.gustaf.Tidy", account: String = "github-token") {
+  public init(service: String = "dev.gustaf.tidy", account: String = "github-token") {
     self.service = service
     self.account = account
   }

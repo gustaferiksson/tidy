@@ -5,7 +5,7 @@ import Testing
 
 @Suite(.enabled(if: ProcessInfo.processInfo.environment["TIDY_KEYCHAIN_TESTS"] != nil))
 struct KeychainTests {
-  let store = KeychainTokenStore(service: "dev.gustaf.Tidy.tests.\(UUID().uuidString)", account: "test-token")
+  let store = KeychainTokenStore(service: "dev.gustaf.tidy.tests.\(UUID().uuidString)", account: "test-token")
 
   @Test func savesUpdatesAndDeletes() throws {
     defer { try? store.delete() }

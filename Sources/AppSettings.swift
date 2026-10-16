@@ -18,7 +18,7 @@ final class AppSettings {
     static let shared: AppSettings = {
         #if DEBUG
         if SettingsSnapshot.output != nil {
-            let suite = "dev.gustaf.Tidy.snapshot"
+            let suite = "dev.gustaf.tidy.snapshot"
             UserDefaults.standard.removePersistentDomain(forName: suite)
             return AppSettings(store: UserDefaults(suiteName: suite) ?? .standard)
         }

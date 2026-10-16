@@ -26,8 +26,8 @@ enum InboxSnapshot {
     static func capture(to directory: URL, updater: AppUpdater) async {
         NSApp.setActivationPolicy(.prohibited)
         try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-        let defaults = UserDefaults(suiteName: "dev.gustaf.Tidy.inboxSnapshot") ?? .standard
-        defaults.removePersistentDomain(forName: "dev.gustaf.Tidy.inboxSnapshot")
+        let defaults = UserDefaults(suiteName: "dev.gustaf.tidy.inboxSnapshot") ?? .standard
+        defaults.removePersistentDomain(forName: "dev.gustaf.tidy.inboxSnapshot")
         defaults.set(true, forKey: "showsAllThreads")
 
         let populated = makeStore(.populated)

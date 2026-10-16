@@ -2,7 +2,7 @@
 
 Tidy ships as a Developer ID signed and notarized app through GitHub Releases and a Homebrew cask. Installed
 copies update themselves: `AppUpdater` checks `releases/latest` on launch, every 24 hours and on wake, downloads
-`Tidy-<version>.zip`, verifies its code signature (team `82K3YC8HVF`, identifier `dev.gustaf.Tidy`), stages it
+`Tidy-<version>.zip`, verifies its code signature (team `82K3YC8HVF`, identifier `dev.gustaf.tidy`), stages it
 next to the installed app and swaps it in on quit or on "Install <version> and Relaunch" in the menu bar window.
 
 ## How the pipeline works

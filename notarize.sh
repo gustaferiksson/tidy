@@ -35,7 +35,7 @@ xcrun stapler staple "$APP"
 
 echo "▸ Verifying…"
 xcrun stapler validate "$APP"
-codesign --verify --strict -R '=anchor apple generic and certificate leaf[subject.OU] = "82K3YC8HVF" and identifier "dev.gustaf.Tidy"' "$APP"
+codesign --verify --strict -R '=anchor apple generic and certificate leaf[subject.OU] = "82K3YC8HVF" and identifier "dev.gustaf.tidy"' "$APP"
 
 echo "▸ Repackaging the stapled app…"
 rm -f "$ZIP"

@@ -10,7 +10,7 @@ One instance for the app's lifetime. Views read it; actions go through its metho
 
 ```swift
 InboxStore(
-  directory: URL = InboxStore.defaultDirectory,        // ~/Library/Application Support/dev.gustaf.Tidy
+  directory: URL = InboxStore.defaultDirectory,        // ~/Library/Application Support/dev.gustaf.tidy
   tokenStorage: any TokenStorage = KeychainTokenStore(),
   session: URLSession = GitHubClient.makeSession(),
   baseURL: URL = GitHubClient.defaultBaseURL,
@@ -169,7 +169,7 @@ The store already applies: baseline-only first fetch after launch or token chang
 - The token is only sent to `baseURL`'s scheme and host: any other URL (subject, comment, `Link` next page) fails with `.forbidden`, and a foreign next page ends paging.
 - `GitHubError`: `.fineGrainedToken .unauthorized .missingScopes([String]) .ssoRequired(organization:url:) .rateLimited(resetsAt:) .offline .forbidden .notFound .server(status:) .unexpectedStatus(Int) .decoding`; `message` is the inline text for Settings.
 - `WebLink.url(for:details:)`, `WebLink.fallback(for:repository:)`, `WebLink.webURL(forAPI:)`.
-- `TokenStorage` protocol: `read() throws -> String?` (nil = no token, throw = Keychain error), `save`, `delete`. A non-throwing `read()` still conforms. `KeychainTokenStore(service: "dev.gustaf.Tidy", account: "github-token")`: generic password, this device only, in the data protection keychain. Builds without an application identifier (ad-hoc, `swift test`) get `errSecMissingEntitlement` there and fall back to the legacy keychain; reads also fall back so a legacy item is still found. Saves update in place, never delete-then-add. Set `TIDY_KEYCHAIN_TESTS=1` to run the real Keychain round-trip test (throwaway service name).
+- `TokenStorage` protocol: `read() throws -> String?` (nil = no token, throw = Keychain error), `save`, `delete`. A non-throwing `read()` still conforms. `KeychainTokenStore(service: "dev.gustaf.tidy", account: "github-token")`: generic password, this device only, in the data protection keychain. Builds without an application identifier (ad-hoc, `swift test`) get `errSecMissingEntitlement` there and fall back to the legacy keychain; reads also fall back so a legacy item is still found. Saves update in place, never delete-then-add. Set `TIDY_KEYCHAIN_TESTS=1` to run the real Keychain round-trip test (throwaway service name).
 - `InboxStore.networkAvailability() -> AsyncStream<Bool>` wraps `NWPathMonitor`.
 
 ## Files in the support directory
