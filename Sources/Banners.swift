@@ -56,7 +56,7 @@ final class Banners: NSObject {
         if case .summary(let count) = event {
             content.title = "\(count) new notifications"
             content.categoryIdentifier = Self.summaryCategory
-            post(content, identifier: Self.summaryIdentifier)
+            center.add(UNNotificationRequest(identifier: Self.summaryIdentifier, content: content, trigger: nil))
             return
         }
         guard case .newThread(let item) = event else { return }
@@ -70,11 +70,7 @@ final class Banners: NSObject {
         content.threadIdentifier = repository
         content.categoryIdentifier = Self.threadCategory
         content.userInfo = ["url": item.webURL.absoluteString]
-        post(content, identifier: item.id)
-    }
-
-    private func post(_ content: UNMutableNotificationContent, identifier: String) {
-        center.add(UNNotificationRequest(identifier: identifier, content: content, trigger: nil))
+        center.add(UNNotificationRequest(identifier: item.id, content: content, trigger: nil))
     }
 
     private func respond(to action: String, threadID: String, url: URL?) {

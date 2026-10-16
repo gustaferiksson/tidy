@@ -11,14 +11,14 @@ enum InboxSnapshot {
 
     nonisolated static let output = UserDefaults.standard.string(forKey: "inboxSnapshot").map { URL(filePath: $0) }
 
-    static func makeStore(_ fixture: Fixture) -> InboxStore {
+    static func makeStore(_ fixture: Fixture, commitDelay: Duration = .zero) -> InboxStore {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [FixtureProtocol.self]
         return InboxStore(
             directory: FileManager.default.temporaryDirectory.appending(path: "tidy-inbox-snapshot-\(UUID().uuidString)"),
             tokenStorage: FixtureTokenStorage(token: fixture == .signedOut ? nil : fixture.rawValue),
             session: GitHubClient.makeSession(configuration: configuration),
-            commitDelay: .zero,
+            commitDelay: commitDelay,
             networkPaths: AsyncStream { $0.yield(true) }
         )
     }
@@ -33,16 +33,23 @@ enum InboxSnapshot {
         await load(populated)
         populated.markDone(["9", "10"])
         try? await Task.sleep(for: .milliseconds(300))
+        let filtered = makeStore(.populated, commitDelay: .seconds(600))
+        await load(filtered)
+        filtered.markDone(["10"])
+        filtered.scope.repository = "tinecli/tidy"
+        filtered.markDone(["6"])
         let empty = makeStore(.empty)
         await load(empty)
         let scenarios: [(String, InboxStore, String?)] = [
             ("populated", populated, nil),
             ("quicklook", populated, "1"),
             ("security", populated, "3"),
+            ("filtered", filtered, nil),
             ("empty", empty, nil),
             ("firstrun", makeStore(.signedOut), nil),
         ]
         for (name, store, quickLookID) in scenarios {
+            defaults.set(store === filtered, forKey: "doneExpanded")
             let panel = PanelController(store: store, updater: updater)
             panel.selection = quickLookID.map { [$0] } ?? ["2"]
             panel.quickLookID = quickLookID

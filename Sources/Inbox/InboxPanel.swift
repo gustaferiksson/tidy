@@ -44,7 +44,7 @@ struct InboxPanel: View {
     }
 
     private var items: [InboxItem] {
-        showsAll ? store.visibleItems : store.visibleItems.filter(\.isUnread)
+        showsAll ? store.visibleItems : store.visibleItems.filter { $0.isUnread || $0.id == panel.quickLookID }
     }
 
     private var header: some View {
