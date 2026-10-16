@@ -310,9 +310,11 @@ public final class InboxStore {
   }
 
   private func restartPolling() {
-    pollTask?.cancel()
+    let previous = pollTask
+    previous?.cancel()
     guard client != nil, isRunning, !isPaused, isOnline else { return }
     pollTask = Task { [weak self] in
+      await previous?.value
       while !Task.isCancelled, let delay = await self?.refresh() {
         try? await Task.sleep(for: delay)
       }
@@ -397,6 +399,7 @@ public final class InboxStore {
       runRuleActions()
       return
     }
+    isRefreshing = false
     await announce(candidates, after: enrichment)
   }
 

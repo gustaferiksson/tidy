@@ -182,6 +182,43 @@ struct InboxStoreTests {
     #expect(store.issue == nil)
   }
 
+  @Test func pollNowDuringAFetchPollsAgainAtOnce() async throws {
+    let calls = Locked(0)
+    server.on("GET", "/notifications") { [threads] _ in
+      let call = calls.withLock { count in
+        count += 1
+        return count
+      }
+      var response = StubResponse.encoded(threads.withLock { $0 }, headers: ["X-OAuth-Scopes": "repo"])
+      response.delay = call == 1 ? 2 : 0
+      return response
+    }
+    let store = makeStore()
+    store.start()
+    try await Task.sleep(for: .milliseconds(50))
+    store.pollNow()
+    try await Task.sleep(for: .milliseconds(300))
+    #expect(store.hasLoaded)
+    #expect(calls.withLock { $0 } == 2)
+    store.stop()
+  }
+
+  @Test func refreshSpinnerStopsBeforeTheBannerWait() async throws {
+    let store = InboxStore(
+      directory: directory, tokenStorage: MemoryTokenStorage(server.token), session: server.session,
+      bannerWait: .seconds(2), networkPaths: AsyncStream { _ in }, now: { Self.now })
+    await store.refresh()
+    try await Task.sleep(for: .milliseconds(50))
+    server.on("GET", "/repos/octo/app/pulls/42", respond: StubResponse(status: 200, body: Data("{}".utf8), delay: 2))
+    threads.withLock { list in
+      for index in list.indices where list[index].id == "101" { list[index].updatedAt = Self.now }
+    }
+    let refresh = Task { await store.refresh() }
+    try await Task.sleep(for: .milliseconds(200))
+    #expect(!store.isRefreshing)
+    refresh.cancel()
+  }
+
   @Test func unauthorizedStopsPolling() async {
     server.on("GET", "/notifications", respond: StubResponse(status: 401))
     let store = makeStore()
