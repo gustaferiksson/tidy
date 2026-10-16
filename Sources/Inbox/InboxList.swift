@@ -9,13 +9,12 @@ struct InboxList: View {
     let showsAll: Bool
     @Environment(InboxStore.self) private var store
     @Environment(PanelController.self) private var panel
-    @AppStorage("doneExpanded") private var doneExpanded = false
     @FocusState private var isFocused: Bool
 
     var body: some View {
         ScrollViewReader { proxy in
             ZStack {
-                if items.isEmpty && store.done.isEmpty {
+                if items.isEmpty {
                     emptyState.frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     list
@@ -38,7 +37,7 @@ struct InboxList: View {
             }
             .onKeyPress(keys: [.upArrow, .downArrow]) { press in
                 guard press.modifiers.isDisjoint(with: [.shift, .command, .control, .option]) else { return .ignored }
-                let order = (items + (doneExpanded ? store.done : [])).map(\.id)
+                let order = items.map(\.id)
                 guard let next = steppedSelection(from: panel.selection, in: order, by: press.key == .upArrow ? -1 : 1) else { return .ignored }
                 panel.selection = [next]
                 proxy.scrollTo(next)
@@ -52,7 +51,7 @@ struct InboxList: View {
             .onKeyPress(.return, phases: .down) { press in
                 if press.modifiers.isDisjoint(with: [.command, .shift, .control, .option]) {
                     guard selected.count == 1, let id = selected.first?.id else { return .ignored }
-                    panel.quickLookID = id
+                    panel.showDetails(id)
                     return .handled
                 }
                 guard press.modifiers.contains(.command), !selected.isEmpty, selected.count <= Self.openLimit else { return .ignored }
@@ -65,7 +64,7 @@ struct InboxList: View {
                 if press.characters == "I" {
                     store.markRead(selected.map(\.id))
                 } else {
-                    markDoneOrRestore(selected)
+                    markDone(selected)
                 }
                 return .handled
             }
@@ -76,30 +75,10 @@ struct InboxList: View {
         @Bindable var panel = panel
         return TimelineView(.everyMinute) { context in
             List(selection: $panel.selection) {
-                if items.isEmpty {
-                    emptyState
-                        .frame(maxWidth: .infinity)
-                        .frame(height: doneExpanded ? 240 : 400)
-                        .listRowSeparator(.hidden)
-                        .selectionDisabled()
-                }
                 ForEach(items) { item in
-                    InboxRow(item: item, isDone: false, now: context.date)
+                    InboxRow(item: item, now: context.date)
                         .listRowInsets(EdgeInsets())
                         .listRowSeparator(.hidden)
-                }
-                if !store.done.isEmpty {
-                    doneHeader
-                        .listRowInsets(EdgeInsets())
-                        .listRowSeparator(.hidden)
-                        .selectionDisabled()
-                    if doneExpanded {
-                        ForEach(store.done) { item in
-                            InboxRow(item: item, isDone: true, now: context.date)
-                                .listRowInsets(EdgeInsets())
-                                .listRowSeparator(.hidden)
-                        }
-                    }
                 }
             }
             .listStyle(.inset)
@@ -109,35 +88,7 @@ struct InboxList: View {
     }
 
     private var selected: [InboxItem] {
-        (items + store.done).filter { panel.selection.contains($0.id) }
-    }
-
-    private var doneHeader: some View {
-        HStack(spacing: 8) {
-            Button {
-                withAnimation(.snappy) { doneExpanded.toggle() }
-            } label: {
-                HStack(spacing: 8) {
-                    Image(systemName: "chevron.right")
-                        .font(.caption.weight(.semibold))
-                        .rotationEffect(.degrees(doneExpanded ? 90 : 0))
-                        .frame(width: 12)
-                    Text("Done · \(store.done.count)")
-                        .font(.subheadline.weight(.semibold))
-                    Spacer(minLength: 0)
-                }
-                .contentShape(Rectangle())
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .accessibilityValue(doneExpanded ? "Expanded" : "Collapsed")
-            Button("Remove All", action: store.removeAllDone)
-                .buttonStyle(.borderless)
-                .font(.subheadline)
-        }
-        .padding(.leading, 12)
-        .padding(.trailing, 4)
-        .frame(height: 36)
+        items.filter { panel.selection.contains($0.id) }
     }
 
     @ViewBuilder private var emptyState: some View {
@@ -158,21 +109,17 @@ struct InboxList: View {
         }
     }
 
-    private func markDoneOrRestore(_ targets: [InboxItem]) {
-        let doneIDs = Set(store.done.map(\.id))
-        let ordered = items + (doneExpanded ? store.done : [])
-        let lastIndex = ordered.lastIndex { panel.selection.contains($0.id) }
-        let next = lastIndex.flatMap { ordered[($0 + 1)...].first { !panel.selection.contains($0.id) } }
-        store.markDone(targets.filter { !doneIDs.contains($0.id) }.map(\.id))
-        store.moveToInbox(targets.filter { doneIDs.contains($0.id) }.map(\.id))
+    private func markDone(_ targets: [InboxItem]) {
+        let lastIndex = items.lastIndex { panel.selection.contains($0.id) }
+        let next = lastIndex.flatMap { items[($0 + 1)...].first { !panel.selection.contains($0.id) } }
+        store.markDone(targets.map(\.id))
         panel.selection = next.map { [$0.id] } ?? []
     }
 
     @ViewBuilder private func contextMenu(for ids: Set<String>) -> some View {
-        let targets = (items + store.done).filter { ids.contains($0.id) }
-        let doneIDs = Set(store.done.map(\.id))
+        let targets = items.filter { ids.contains($0.id) }
         if !targets.isEmpty {
-            Button("Quick Look") { panel.quickLookID = targets.first?.id }
+            Button("Quick Look") { targets.first.map { panel.showDetails($0.id) } }
                 .disabled(targets.count != 1)
             Button("Open on GitHub") {
                 for item in targets where item.webURL.isGitHubWeb { NSWorkspace.shared.open(item.webURL) }
@@ -186,16 +133,11 @@ struct InboxList: View {
             Divider()
             Button("Mark as Read") { store.markRead(targets.map(\.id)) }
                 .disabled(!targets.contains(where: \.isUnread))
-            if targets.allSatisfy({ doneIDs.contains($0.id) }) {
-                Button("Move to Inbox") { store.moveToInbox(targets.map(\.id)) }
-            } else {
-                Button("Done") { store.markDone(targets.map(\.id)) }
-            }
+            Button("Done") { store.markDone(targets.map(\.id)) }
             Divider()
             Button("Mute Thread") {
-                for item in targets where !doneIDs.contains(item.id) { store.muteThread(item.id) }
+                for item in targets { store.muteThread(item.id) }
             }
-            .disabled(targets.allSatisfy { doneIDs.contains($0.id) })
             Button("Mute Repository") {
                 for repository in Set(targets.map(\.thread.repository.fullName)) { store.muteRepository(repository) }
             }

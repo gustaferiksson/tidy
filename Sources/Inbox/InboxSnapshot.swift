@@ -47,15 +47,14 @@ enum InboxSnapshot {
             ("hoverselected", populated, nil, "2"),
             ("quicklook", populated, "1", nil),
             ("security", populated, "3", nil),
-            ("filtered", filtered, nil, "10"),
+            ("filtered", filtered, nil, "2"),
             ("empty", empty, nil, nil),
             ("firstrun", makeStore(.signedOut), nil, nil),
         ]
         for (name, store, quickLookID, hoveredID) in scenarios {
-            defaults.set(store === filtered, forKey: "doneExpanded")
             let panel = PanelController(store: store, updater: updater)
-            panel.selection = quickLookID.map { [$0] } ?? ["2"]
-            panel.quickLookID = quickLookID
+            panel.selection = ["2"]
+            if let quickLookID { panel.showDetails(quickLookID) }
             panel.hoveredID = hoveredID
             for (appearance, suffix) in [(NSAppearance.Name.aqua, "light"), (.darkAqua, "dark")] {
                 let window = PanelController.makePanelWindow(
@@ -140,7 +139,7 @@ private enum FixtureData {
     .glassEffect(.regular, in: .capsule)
     ```
 
-    One question: should *Remove All* ask for confirmation? See [the flow spec](https://github.com/tinecli/tidy/blob/main/docs/FLOW.md).
+    One question: should *Done* ask for confirmation? See [the flow spec](https://github.com/tinecli/tidy/blob/main/docs/FLOW.md).
     """
 
     nonisolated(unsafe) static let entries: [Entry] = [
@@ -169,7 +168,7 @@ private enum FixtureData {
         Entry(id: "9", repository: "acme/web", kind: "PullRequest", title: "Remove the legacy settings window", number: 301, reason: "review_requested", unread: true, minutesAgo: 4_400,
               subject: ["state": "closed", "merged": false, "user": ["login": "sam"], "body": "Superseded.", "html_url": "https://github.com/acme/web/pull/301"],
               comment: nil),
-        Entry(id: "10", repository: "tinecli/tidy", kind: "Issue", title: "Done section should remember whether it's expanded", number: 33, reason: "author", unread: false, minutesAgo: 6_000,
+        Entry(id: "10", repository: "tinecli/tidy", kind: "Issue", title: "Remember the Unread and All choice between launches", number: 33, reason: "author", unread: false, minutesAgo: 6_000,
               subject: ["state": "closed", "user": ["login": "gustaf"], "body": "Fixed.", "html_url": "https://github.com/tinecli/tidy/issues/33"],
               comment: nil),
     ]

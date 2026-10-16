@@ -53,7 +53,7 @@ struct GitHubSettings: View {
                         store.disconnect()
                     }
                 } message: {
-                    Text("Tidy removes the token from your Keychain and clears the inbox, Done and muted threads on this Mac. Your filters stay.")
+                    Text("Tidy removes the token from your Keychain and clears the inbox and muted threads on this Mac. Your filters stay.")
                 }
             }
             if !store.isSignedIn || isReplacing || store.issue == .unauthorized || store.issue == .missingScope {

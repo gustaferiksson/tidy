@@ -31,7 +31,7 @@ InboxStore(
 | `pollNow()` | Refresh button and ⌘R |
 | `refresh() async -> Duration?` | One poll; returns the next delay, nil when polling stopped (401, missing scope). Mostly for tests |
 | `connect(token:) async throws` | Settings › GitHub › Connect. Throws `GitHubError` (`.fineGrainedToken` before any request, `.missingScopes`, `.unauthorized`, `.offline`…), show `error.message` inline. On success saves to Keychain, resets the banner baseline and starts polling |
-| `disconnect()` | Deletes the token and all account data (inbox, Done, queue, muted, cache) |
+| `disconnect()` | Deletes the token and all account data (inbox, queue, muted, cache) |
 | `flushPending() async` | Call when the panel closes: sends queued changes now |
 
 Network loss pauses polling and sets `issue = .offline`; reconnect resumes polling and sends queued changes.
@@ -40,10 +40,9 @@ Network loss pauses polling and sets `issue = .offline`; reconnect resumes polli
 
 | Property | Meaning |
 |---|---|
-| `inbox: [InboxItem]` | Every non-Done thread, newest `updatedAt` first, filters not applied |
+| `inbox: [InboxItem]` | Every thread not archived, newest `updatedAt` first, filters not applied |
 | `visibleItems: [InboxItem]` | `inbox` after `scope` and hide rules (hidden rows included while `showsHidden`). The Unread/All segment is the app's own `filter(\.isUnread)` |
-| `done: [InboxItem]` | Done section, newest first, persisted with last-known state |
-| `unreadCount: Int` | Menu bar count: unread, not Done, not hidden by a rule. Ignores `scope`. Rows whose author/state rule is still waiting for subject data count (they are visible too), so the count can drop once the data arrives |
+| `unreadCount: Int` | Menu bar count: unread, not hidden by a rule. Ignores `scope`. Rows whose author/state rule is still waiting for subject data count (they are visible too), so the count can drop once the data arrives |
 | `hiddenCount: Int` | Footer "N hidden by filters" |
 | `showsHidden: Bool` (settable) | Footer "Show" |
 | `scope: InboxScope` (settable) | Header filter: `participatingOnly`, `repository`; `isActive` for the capsule |
@@ -67,12 +66,11 @@ All are synchronous and optimistic: state changes at once, the GitHub call goes 
 
 | Method | Local effect | GitHub call |
 |---|---|---|
-| `markRead(_ ids: [String])` | Rows dim | `PATCH` per unread thread |
-| `markDone(_ ids: [String])` | Rows move to Done, marked read | `PATCH` per unread thread |
-| `moveToInbox(_ ids: [String])` | Done rows return as read. Immediate, not undoable. Cancels a still-pending Done or Mute for these rows | `PATCH` per unread row whose Done/Mute was cancelled, else none |
-| `removeAllDone()` | Done emptied | `DELETE` per thread, 4 at a time |
-| `markAllRead()` | Rows dim (never rows hidden by a rule, even while `showsHidden`). After a `PUT`, rows stay read locally until a poll shows them read or with newer activity, since GitHub may answer 202 and apply it later | `PUT /notifications` (no scope, nothing hidden), `PUT /repos/{o}/{r}/notifications` (repo scope), or `PATCH` per visible unread thread (Participating Only or hide rules hiding something) |
-| `muteThread(_ id: String)` | Row moves to Done | `PUT …/subscription {ignored: true}` then `PATCH`; adds to `muted` on success |
+| `markRead(_ ids: [String])` | Rows turn read | `PATCH` per unread thread |
+| `markRead(opening id: String)` | Quick Look was opened (not peeked): the row turns read. Sent at once, never undoable, leaves `undoableChange` alone | `PATCH` if unread, else none |
+| `markDone(_ ids: [String])` | Rows leave `inbox` (archive). Undo puts them back | `DELETE` per thread, 4 at a time |
+| `markAllRead()` | Rows turn read (never rows hidden by a rule, even while `showsHidden`). After a `PUT`, rows stay read locally until a poll shows them read or with newer activity, since GitHub may answer 202 and apply it later | `PUT /notifications` (no scope, nothing hidden), `PUT /repos/{o}/{r}/notifications` (repo scope), or `PATCH` per visible unread thread (Participating Only or hide rules hiding something) |
+| `muteThread(_ id: String)` | Row leaves `inbox`, like Done | `PUT …/subscription {ignored: true}` then `DELETE`; adds to `muted` on success |
 | `muteRepository(_ fullName: String)` | Appends rule "Repository is X → Hide", unless one already hides exactly that repository | none |
 | `unmute(_ id: String) async throws` | Removes from `muted` | `PUT …/subscription {ignored: false}`, immediate |
 | `undo() -> [String]` | Reverts `undoableChange`; returns its thread ids to scroll to and select. `[]` once the window has passed | cancelled |
@@ -80,7 +78,9 @@ All are synchronous and optimistic: state changes at once, the GitHub call goes 
 | `dismissFailure()` | Clears `failure` | none |
 | `loadDetails(for id: String)` | Quick Look Retry: refetches subject data | `GET subject.url` etc. |
 
-`markRead` and `markDone` also accept ids not loaded yet (banner actions right after relaunch): they apply, not undoable, on the next fetch that returns a list (a 304 keeps them waiting). Ids that fetch doesn't list are dropped. Kept in memory only.
+`markRead`, `markRead(opening:)` and `markDone` also accept ids not loaded yet (banner actions right after relaunch): they apply, not undoable, on the next fetch that returns a list (a 304 keeps them waiting). Ids that fetch doesn't list are dropped. Kept in memory only.
+
+After a Done or Mute is sent, polls that still list the thread with the same `updatedAt` don't bring it back (GitHub can lag). A newer `updatedAt` brings it back as unread. Kept in memory only.
 
 On failure the affected rows roll back and `failure` is set. Offline failures stay queued instead. The queue is persisted (`pending.json`) and resent on next `start()`.
 
@@ -159,4 +159,4 @@ The store already applies: baseline-only first fetch after launch or token chang
 
 ## Files in the support directory
 
-`rules.json`, `silenced-reasons.json`, `done.json`, `pending.json`, `muted.json`, `account.json`, and `Cache/` (ETag responses). The token is only in the Keychain. A file that fails to decode is renamed to `NAME.corrupt` (replacing an older one) and the store starts from empty for it.
+`rules.json`, `silenced-reasons.json`, `pending.json`, `muted.json`, `account.json`, and `Cache/` (ETag responses). The token is only in the Keychain. A `done.json` left by older versions (the local Done section) is deleted at launch without calling GitHub; those threads stay read on github.com. A `pending.json` that still holds an old Remove All fails to decode and is set aside as `.corrupt`. A file that fails to decode is renamed to `NAME.corrupt` (replacing an older one) and the store starts from empty for it.

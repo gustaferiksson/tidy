@@ -9,7 +9,6 @@ public final class InboxStore {
   public static let summaryThreshold = 5
 
   public private(set) var inbox: [InboxItem] = []
-  public private(set) var done: [InboxItem] = []
   public private(set) var account: GitHubAccount?
   public private(set) var isSignedIn = false
   public private(set) var hasLoaded = false
@@ -59,6 +58,7 @@ public final class InboxStore {
   @ObservationIgnored private var ruleActed: Set<String> = []
   @ObservationIgnored private var deferred: [String: PendingAction] = [:]
   @ObservationIgnored private var markedRead: [String: Date] = [:]
+  @ObservationIgnored private var archived: [String: Date] = [:]
 
   public init(
     directory: URL = InboxStore.defaultDirectory,
@@ -82,7 +82,7 @@ public final class InboxStore {
     self.now = now
     rules = load("rules.json") ?? []
     silencedReasons = load("silenced-reasons.json") ?? []
-    done = load("done.json") ?? []
+    try? FileManager.default.removeItem(at: directory.appending(path: "done.json"))
     pending = load("pending.json") ?? []
     muted = load("muted.json") ?? []
     account = load("account.json")
@@ -95,7 +95,7 @@ public final class InboxStore {
 
   public var hiddenCount: Int { inbox.count { rules.outcome(for: $0).hides } }
   public var unreadCount: Int { inbox.count { $0.isUnread && !rules.outcome(for: $0).hides } }
-  public var repositories: [String] { Set((inbox + done).map(\.thread.repository.fullName)).sorted() }
+  public var repositories: [String] { Set(inbox.map(\.thread.repository.fullName)).sorted() }
 
   public static func networkAvailability() -> AsyncStream<Bool> {
     AsyncStream { continuation in
@@ -202,57 +202,40 @@ public final class InboxStore {
     hasLoaded = true
     if let threads = fetch.threads {
       isCapped = !fetch.isComplete
-      await merge(threads, isComplete: fetch.isComplete)
+      await merge(threads)
     }
     return pollInterval
   }
 
   public func loadDetails(for id: String) {
-    let items = (inbox + done).filter { $0.id == id }
+    let items = inbox.filter { $0.id == id }
     for item in items { setStatus(.loading, for: item.thread) }
     Task { await enrich(items) }
   }
 
   public func markRead(_ ids: [String]) {
-    let known = Set((inbox + done).map(\.id))
+    let known = Set(inbox.map(\.id))
     for id in ids where !known.contains(id) { deferred[id] = .markRead }
-    perform(.markRead, items: (inbox + done).filter { ids.contains($0.id) && $0.isUnread })
+    perform(.markRead, items: inbox.filter { ids.contains($0.id) && $0.isUnread })
+  }
+
+  public func markRead(opening id: String) {
+    guard inbox.contains(where: { $0.id == id }) else {
+      deferred[id] = .markRead
+      return
+    }
+    perform(.markRead, items: inbox.filter { $0.id == id && $0.isUnread }, delay: .zero)
   }
 
   public func markDone(_ ids: [String]) {
-    let known = Set((inbox + done).map(\.id))
+    let known = Set(inbox.map(\.id))
     for id in ids where !known.contains(id) { deferred[id] = .done }
     perform(.done, items: inbox.filter { ids.contains($0.id) })
   }
 
-  public func moveToInbox(_ ids: [String]) {
-    let moving = done.filter { ids.contains($0.id) }
-    let moved = Set(moving.map(\.id))
-    done.removeAll { moved.contains($0.id) }
-    inbox = (inbox + moving).sorted { $0.thread.updatedAt > $1.thread.updatedAt }
-    let interrupted = pending.filter { [.done, .mute].contains($0.action) && !moved.isDisjoint(with: $0.threadIDs) }
-    for change in interrupted {
-      let kept = change.restricted(to: Set(change.threadIDs).subtracting(moved))
-      if undoableChange?.id == change.id { undoableChange = kept.items.isEmpty ? nil : kept }
-      guard kept.items.isEmpty else {
-        pending = pending.map { $0.id == change.id ? kept : $0 }
-        continue
-      }
-      pending.removeAll { $0.id == change.id }
-      commitTasks.removeValue(forKey: change.id)?.cancel()
-    }
-    save(pending, as: "pending.json")
-    save(done, as: "done.json")
-    perform(.markRead, items: interrupted.flatMap { $0.items.filter { moved.contains($0.id) } }, delay: .zero)
-  }
-
-  public func removeAllDone() {
-    perform(.remove, items: done)
-  }
-
   public func markAllRead() {
     let unread = inbox.filter(\.isUnread)
-    let newest = (inbox + done).map(\.thread.updatedAt).max() ?? now()
+    let newest = inbox.map(\.thread.updatedAt).max() ?? now()
     if scope.participatingOnly || hiddenCount > 0 {
       perform(.markAllRead(.visibleThreads), items: unread.filter { scope.contains($0) && !rules.outcome(for: $0).hides })
     } else if let repository = scope.repository {
@@ -287,7 +270,6 @@ public final class InboxStore {
     commitTasks.removeValue(forKey: id)?.cancel()
     revert(change)
     save(pending, as: "pending.json")
-    save(done, as: "done.json")
     return change.threadIDs
   }
 
@@ -303,7 +285,7 @@ public final class InboxStore {
     self.failure = nil
     for change in failure.changes {
       let ids = Set(change.threadIDs)
-      perform(change.action, items: (inbox + done).filter { ids.contains($0.id) }, delay: .zero)
+      perform(change.action, items: inbox.filter { ids.contains($0.id) }, delay: .zero)
     }
   }
 
@@ -372,21 +354,16 @@ public final class InboxStore {
     }
   }
 
-  private func merge(_ threads: [NotificationThread], isComplete: Bool) async {
+  private func merge(_ threads: [NotificationThread]) async {
     let since = GitHubClient.since(now: now())
-    let cutoff = isComplete ? since : threads.map(\.updatedAt).min() ?? since
     var seen: Set<String> = []
     let unique = threads.filter { seen.insert($0.id).inserted }
     let fresh = Dictionary(uniqueKeysWithValues: unique.map { ($0.id, $0) })
-    let previous = Dictionary((done + inbox).map { ($0.id, $0) }) { first, _ in first }
+    let previous = Dictionary(inbox.map { ($0.id, $0) }) { first, _ in first }
     let readElsewhere = unique.filter { !$0.unread && previous[$0.id]?.isUnread == true }.map(\.id)
     if !readElsewhere.isEmpty { continuation.yield(.withdraw(threadIDs: readElsewhere)) }
-    done = done.filter { item in
-      guard let thread = fresh[item.id] else { return item.thread.updatedAt < cutoff }
-      return !(thread.unread && thread.updatedAt > item.thread.updatedAt)
-    }
-    let doneIDs = Set(done.map(\.id))
-    inbox = unique.filter { !doneIDs.contains($0.id) }.sorted { $0.updatedAt > $1.updatedAt }.map { thread in
+    archived = archived.filter { id, archivedAt in fresh[id].map { $0.updatedAt <= archivedAt } ?? false }
+    inbox = unique.filter { archived[$0.id] == nil }.sorted { $0.updatedAt > $1.updatedAt }.map { thread in
       guard let old = previous[thread.id], old.thread.updatedAt == thread.updatedAt else {
         staleDetails[thread.id] = previous[thread.id]?.details
         return InboxItem(thread: thread)
@@ -396,13 +373,12 @@ public final class InboxStore {
     for change in pending { apply(change) }
     markedRead = markedRead.filter { id, markedAt in fresh[id].map { $0.unread && $0.updatedAt <= markedAt } ?? false }
     for index in inbox.indices where markedRead[inbox[index].id] != nil { inbox[index].thread.unread = false }
-    save(done, as: "done.json")
     let waiting = deferred
     deferred = [:]
-    perform(.markRead, items: (inbox + done).filter { waiting[$0.id] == .markRead && $0.isUnread }, delay: .zero)
+    perform(.markRead, items: inbox.filter { waiting[$0.id] == .markRead && $0.isUnread }, delay: .zero)
     perform(.done, items: inbox.filter { waiting[$0.id] == .done }, delay: .zero)
 
-    let enrichment = Task { await enrich((inbox + done).filter { $0.status == .loading && !enriching.contains($0.id) }) }
+    let enrichment = Task { await enrich(inbox.filter { $0.status == .loading && !enriching.contains($0.id) }) }
     let newest = threads.map(\.updatedAt).max()
     guard let baseline else {
       self.baseline = newest ?? since
@@ -478,10 +454,6 @@ public final class InboxStore {
     if let index = inbox.firstIndex(where: { $0.id == thread.id && $0.thread.updatedAt == thread.updatedAt }) {
       inbox[index].status = status
     }
-    if let index = done.firstIndex(where: { $0.id == thread.id && $0.thread.updatedAt == thread.updatedAt }) {
-      done[index].status = status
-      save(done, as: "done.json")
-    }
   }
 
   private func runRuleActions() {
@@ -515,7 +487,6 @@ public final class InboxStore {
     pending.append(change)
     apply(change)
     save(pending, as: "pending.json")
-    save(done, as: "done.json")
     continuation.yield(.withdraw(threadIDs: change.threadIDs))
     schedule(change, after: delay ?? commitDelay)
     guard delay == nil else { return }
@@ -546,6 +517,9 @@ public final class InboxStore {
     if case .markAllRead(let target) = change.action, target != .visibleThreads {
       for item in succeeded where item.isUnread { markedRead[item.id] = item.thread.updatedAt }
     }
+    if [.done, .mute].contains(change.action) {
+      for item in succeeded { archived[item.id] = item.thread.updatedAt }
+    }
     if change.action == .mute, !succeeded.isEmpty {
       muted += succeeded.map {
         MutedThread(id: $0.id, title: $0.title, repository: $0.thread.repository.fullName)
@@ -562,7 +536,6 @@ public final class InboxStore {
     guard !failed.isEmpty else { return }
     let failedChange = change.restricted(to: failed)
     revert(failedChange)
-    save(done, as: "done.json")
     failure = ActionFailure(changes: (failure?.changes ?? []) + [failedChange])
   }
 
@@ -571,20 +544,8 @@ public final class InboxStore {
     switch change.action {
     case .markRead, .markAllRead:
       for index in inbox.indices where ids.contains(inbox[index].id) { inbox[index].thread.unread = false }
-      for index in done.indices where ids.contains(done[index].id) { done[index].thread.unread = false }
     case .done, .mute:
-      let moving = inbox.filter { ids.contains($0.id) }.map { item in
-        var item = item
-        item.thread.unread = false
-        return item
-      }
-      let movingIDs = Set(moving.map(\.id))
-      inbox.removeAll { movingIDs.contains($0.id) }
-      done.removeAll { movingIDs.contains($0.id) }
-      done.insert(contentsOf: moving, at: 0)
-    case .remove:
       inbox.removeAll { ids.contains($0.id) }
-      done.removeAll { ids.contains($0.id) }
     }
   }
 
@@ -595,30 +556,23 @@ public final class InboxStore {
       for index in inbox.indices {
         if let original = snapshot[inbox[index].id] { inbox[index].thread.unread = original.isUnread }
       }
-      for index in done.indices {
-        if let original = snapshot[done[index].id] { done[index].thread.unread = original.isUnread }
-      }
     case .done, .mute:
-      done.removeAll { snapshot[$0.id] != nil }
       let present = Set(inbox.map(\.id))
       inbox = (inbox + change.items.filter { !present.contains($0.id) }).sorted { $0.thread.updatedAt > $1.thread.updatedAt }
-    case .remove:
-      let present = Set(done.map(\.id))
-      done += change.items.filter { !present.contains($0.id) }
     }
   }
 
   nonisolated private static func send(_ change: PendingChange, client: GitHubClient) async -> [String: any Error] {
     let unread = change.items.filter(\.isUnread).map(\.id)
     switch change.action {
-    case .markRead, .done, .markAllRead(.visibleThreads):
+    case .markRead, .markAllRead(.visibleThreads):
       return await forEach(unread) { try await client.markRead(threadID: $0) }
-    case .remove:
+    case .done:
       return await forEach(change.threadIDs) { try await client.remove(threadID: $0) }
     case .mute:
       return await forEach(change.threadIDs) { id in
         try await client.mute(threadID: id)
-        if unread.contains(id) { try await client.markRead(threadID: id) }
+        try await client.remove(threadID: id)
       }
     case .markAllRead(.everything(let lastReadAt)), .markAllRead(.repository(_, let lastReadAt)):
       let repository: String? = if case .markAllRead(.repository(let name, _)) = change.action { name } else { nil }
@@ -673,11 +627,10 @@ public final class InboxStore {
     undoableChange = nil
     deferred = [:]
     markedRead = [:]
-    done = []
+    archived = [:]
     muted = []
     failure = nil
     save(pending, as: "pending.json")
-    save(done, as: "done.json")
     save(muted, as: "muted.json")
   }
 

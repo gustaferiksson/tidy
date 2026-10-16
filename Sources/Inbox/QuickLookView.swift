@@ -68,7 +68,7 @@ struct QuickLookView: View {
     }
 
     private var item: InboxItem? {
-        (store.inbox + store.done).first { $0.id == id }
+        store.inbox.first { $0.id == id }
     }
 
     private func details(of item: InboxItem) -> some View {
@@ -140,7 +140,6 @@ struct QuickLookView: View {
             Button("Mark as Read") { store.markRead([item.id]) }
                 .disabled(!item.isUnread)
             Button("Done") { markDone(item) }
-                .disabled(store.done.contains { $0.id == item.id })
             Spacer(minLength: 0)
             Menu {
                 Button("Copy Link") {
@@ -148,8 +147,7 @@ struct QuickLookView: View {
                     NSPasteboard.general.setString(item.webURL.absoluteString, forType: .string)
                 }
                 Divider()
-                Button("Mute Thread") { store.muteThread(item.id) }
-                    .disabled(store.done.contains { $0.id == item.id })
+                Button("Mute Thread") { muteThread(item) }
                 Button("Mute Repository") { store.muteRepository(item.thread.repository.fullName) }
             } label: {
                 Image(systemName: "ellipsis.circle")
@@ -168,8 +166,7 @@ struct QuickLookView: View {
 
     private func step(by offset: Int) -> KeyPress.Result {
         guard let next = steppedSelection(from: [id], in: order.map(\.id), by: offset) else { return .handled }
-        panel.selection = [next]
-        panel.quickLookID = next
+        panel.showDetails(next)
         return .handled
     }
 
@@ -179,15 +176,23 @@ struct QuickLookView: View {
     }
 
     private func markDone(_ item: InboxItem) {
-        guard !store.done.contains(where: { $0.id == item.id }) else {
-            store.moveToInbox([item.id])
+        showNext(after: item)
+        store.markDone([item.id])
+    }
+
+    private func muteThread(_ item: InboxItem) {
+        showNext(after: item)
+        store.muteThread(item.id)
+    }
+
+    private func showNext(after item: InboxItem) {
+        let index = order.firstIndex { $0.id == item.id }
+        guard let next = index.flatMap({ order.indices.contains($0 + 1) ? order[$0 + 1].id : nil }) else {
+            panel.selection = []
+            panel.quickLookID = nil
             return
         }
-        let index = order.firstIndex { $0.id == item.id }
-        let next = index.flatMap { order.indices.contains($0 + 1) ? order[$0 + 1].id : nil }
-        store.markDone([item.id])
-        panel.selection = next.map { [$0] } ?? []
-        panel.quickLookID = next
+        panel.showDetails(next)
     }
 }
 

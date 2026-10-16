@@ -28,7 +28,7 @@ Set in Settings › General › Menu Bar.
 | Icon Only | `tray.badge` | `tray` |
 
 - The count tops out at "99+".
-- It counts threads that are unread, not Done, and not hidden by a filter.
+- It counts threads that are unread and not hidden by a filter.
 - Glyphs are template images.
 - When the token is missing or invalid, the label shows `tray` with no count.
 - When offline or rate limited, the label keeps the last known count.
@@ -59,14 +59,13 @@ Set in Settings › General › Menu Bar.
 | | Title | Dot | Glyph |
 |---|---|---|---|
 | Unread | semibold, primary colour | yes | full colour |
-| Read (not Done) | regular weight, secondary colour | no | full colour at 60% opacity |
+| Read | regular weight, primary colour | no (the gutter keeps its width so titles stay aligned) | full colour |
 
-**Done section** (at the bottom, in both Unread and All):
-- The header reads `Done · 12`, with a disclosure chevron and a trailing **Remove All** button.
-- It's collapsed by default, and Tidy remembers whether it's open.
-- Done rows look like read rows. They show their last-known state.
-- Hovering a Done row shows one button: `tray.and.arrow.up` (Move to Inbox).
-- The section is hidden when it's empty.
+As in Mail, weight and the dot are the only difference: read rows aren't greyed out, and the meta line is secondary in both.
+
+There is no Done section. Done archives a thread (§4), so it leaves the list.
+
+**Unread segment:** a thread opened in Quick Look (§7) stays in the Unread list, read, until the panel closes, so stepping back with ↑ still finds it.
 
 **Footer (28 pt, secondary colour):** shows one of these:
 - `Updated 1m ago`, or a status from §8.
@@ -74,41 +73,42 @@ Set in Settings › General › Menu Bar.
 - `4 hidden by filters · Show`. This link is the only way to reveal hidden items.
 - `Showing the last 14 days` once the 200-thread cap is reached.
 
-## 4. Done model
+## 4. Read and Done model
 
-Done replaces "clear" and "clear all". There's a single path for each action.
+Tidy works like an email inbox. Opening a thread reads it, and Done archives it.
 
 | Action | How | What changes locally | GitHub call |
 |---|---|---|---|
-| Mark as Read | ⇧I, hover, context menu | The row dims | `PATCH /notifications/threads/{id}` |
-| Done | E, hover, context menu | The row moves to Done, saved with its last-known state | `PATCH` (marks read) |
-| Move to Inbox | E on a Done row, hover | The row goes back to the list as read | none |
-| Remove All (Done) | The section's button | Done rows are dropped | `DELETE /notifications/threads/{id}` for each, 4 at a time |
-| Mark All as Read | ⇧⌘I, the ⋯ menu | Every row dims | See below |
+| Open | Click, ↩, context menu Quick Look, banner Quick Look, ↑ ↓ in Quick Look | Quick Look opens and the row turns read. No undo | `PATCH /notifications/threads/{id}`, sent at once |
+| Peek | Space | Quick Look opens. The thread stays unread | none |
+| Mark as Read | ⇧I, hover, context menu | The row turns read | `PATCH /notifications/threads/{id}` |
+| Done | E, hover, swipe, context menu, Quick Look, banner | The row leaves the list | `DELETE /notifications/threads/{id}` (GitHub's "mark as done"), 4 at a time |
+| Mark All as Read | ⇧⌘I, the ⋯ menu | Every row turns read | See below |
 
-**Done keeps threads on GitHub on purpose.** At first Done only marks a thread read. github.com still lists it as read until Remove All, so it can still be revisited and undone.
+**Done is archive.** Nothing is kept locally: the thread disappears from github.com's inbox too. When it gets new activity, GitHub lists it again and it comes back as unread.
 
 **Mark All as Read:**
 - With no filter, Tidy calls `PUT /notifications` with `last_read_at` set to the newest `updated_at` it has seen.
 - With a repo filter, it calls `PUT /repos/{o}/{r}/notifications` instead.
-- When GitHub answers 202 (it handles the request in the background), the rows stay dimmed and the next poll reconciles them.
+- When GitHub answers 202 (it handles the request in the background), the rows stay read and the next poll reconciles them.
 - When Participating Only or hide rules are active, Tidy sends a `PATCH` for each visible thread instead, so hidden threads aren't touched.
 
 **Selection:** `List(selection:)` supports ⌘-click, ⇧-click and ⌘A, and actions apply to the whole selection. To mark everything Done, press ⌘A, then E.
 
 **Resurfacing:**
-- If a Done or removed thread comes back unread with a newer `updated_at`, it returns to the top of the list as unread.
+- A Done thread stays out of the list while polls still return it with the same `updated_at` (GitHub can lag). Once its `updated_at` moves on, it returns to the top as unread.
 - If a thread disappears from an `all=true` response, someone marked it done on github.com, so Tidy removes it locally.
 
 **Optimistic updates and undo:**
 - The UI changes at once. The GitHub call is sent 5 s later.
 - During that window, the footer reads "Marked as done · Undo" ("Marked 3 as done" for a batch) in place of "Updated…", as in Mail. There's no floating toast, so repeated actions just update the text. ⌘Z also undoes.
-- Undo scrolls to the restored rows and selects them.
-- The window is 5 s because GitHub has no "mark unread" call, so a read can't be reversed once it's sent.
+- Undo cancels the pending call, puts the rows back, scrolls to them and selects them.
+- The window is 5 s because GitHub has no "mark unread" or "undo done" call, so neither can be reversed once it's sent.
+- Opening a thread is the exception: its read is sent at once and has no undo, as in Mail. It never replaces a Done that's still undoable.
 - Closing the panel sends whatever is pending right away. The queue is saved to disk.
 - On failure, the change rolls back and the footer reads "Couldn't update 2 notifications · Retry".
 - While offline, changes stay queued until the connection returns.
-- Remove All has no confirmation alert: it can be undone, and GitHub brings a thread back on new activity anyway.
+- Done has no confirmation alert: it can be undone, and GitHub brings a thread back on new activity anyway.
 
 ## 5. State glyphs
 
@@ -201,9 +201,11 @@ With Increase Contrast on, Tidy uses the system colours instead (`.green`, `.pur
 Quick Look is the only detail view. It's pushed inside the panel with `NavigationStack` at the same fixed size, the way Control Center modules drill in. An expanding row can't hold a long Markdown body.
 
 **Opening and moving:**
-- A click opens a row (⌘-click and ⇧-click only extend the selection). Space or ↩ opens the selected row.
+- A click or ↩ opens the selected row and marks it read (⌘-click and ⇧-click only extend the selection).
+- Space peeks: it opens the same view without marking read.
 - Space, Esc, ⌘[ or `chevron.backward` closes it.
-- ↑ and ↓ step through threads without leaving Quick Look.
+- ↑ and ↓ step through threads without leaving Quick Look. Each thread stepped to is marked read, even after a Space peek, since stepping is reading.
+- Done and Mute Thread step to the next thread, which is then marked read too.
 
 **Content:**
 - The state glyph with the state word ("Merged").
@@ -219,9 +221,9 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 - Done
 - An `ellipsis.circle` overflow menu with Copy Link, Mute Thread and Mute Repository. This puts every context-menu action in the main UI too.
 
-**Never marks read on its own:**
-- Viewing a thread in Quick Look doesn't mark it read, wherever Quick Look was opened from (including the banner's Quick Look action).
-- Only Mark as Read, Done or Open on GitHub mark a thread read.
+**Reading:**
+- Opening Quick Look marks the thread read, as opening an email does, wherever it was opened from (including the banner's Quick Look action). The row stays in the list.
+- Only Space peeks without marking read. Mark as Read in the bottom bar is for a peeked thread.
 
 **Focus return:**
 - Before the panel opens, Tidy records `NSWorkspace.shared.frontmostApplication`, unless that app is Tidy itself.
@@ -239,7 +241,7 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 | First load | A centred `ProgressView` | `tray` |
 | First load while offline | Centred `wifi.slash`, "Can't reach GitHub", **Retry** | `tray` |
 | Token can't be read from the Keychain | Before the first load: centred `key.slash`, "Can't read your token from the Keychain", **Retry**. After it: the same text and **Retry** in the footer. Every poll retries the read | `tray`, then last count |
-| Inbox zero | `checkmark.circle`, "You're all caught up". The Done section stays below | `tray` |
+| Inbox zero | `checkmark.circle`, "You're all caught up" | `tray` |
 | Empty because of a filter | "No unread in owner/repo", **Clear Filter** | count |
 | Offline | The cached list stays usable. The footer shows `wifi.slash` "Offline · updated 12:04" | last count |
 | Rate limited (403 or 429 with `X-RateLimit-Remaining: 0` or `Retry-After`) | Footer: "GitHub rate limit · resumes 14:32". Polling pauses | last count |
@@ -253,11 +255,11 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 | Key | Action |
 |---|---|
 | ↑ ↓ | Move the selection. In Quick Look, step to the previous or next thread |
-| Space | Open or close Quick Look |
-| ↩ | Open Quick Look for the selected row, exactly like a click. Never marks read. Does nothing unless exactly one row is selected. In Quick Look: Open on GitHub and mark read |
+| Space | Peek: open Quick Look without marking read, or close it |
+| ↩ | Open Quick Look for the selected row and mark it read, exactly like a click. Does nothing unless exactly one row is selected. In Quick Look: Open on GitHub and mark read |
 | ⌘↩ | Open on GitHub and mark read. Opening a thread means you're handling it, as in Mail. Does nothing with more than 10 rows selected |
 | ⌥⌘↩ | Open on GitHub without marking read (⌥↩ also works in Quick Look) |
-| E | Done. On a Done row: Move to Inbox |
+| E | Done (archive) |
 | ⇧I / ⇧⌘I | Mark as Read / Mark All as Read |
 | ⌘A / ⌘Z | Select all / Undo |
 | ⌘R | Refresh |
@@ -267,7 +269,7 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 
 **Hover:** two plain trailing 24 pt buttons fade in, secondary colour with a pointing-hand cursor and tooltips: `envelope.open` (Mark as Read) and `checkmark` (Done). Rows keep that space free so titles never sit under them. Rows have no separators.
 
-**Swipe:** as in Mail, swiping right reveals the leading action, Mark as Read, and swiping left reveals the trailing action, Done (Move to Inbox on a Done row).
+**Swipe:** as in Mail, swiping right reveals the leading action, Mark as Read, and swiping left reveals the trailing action, Done.
 
 **Context menu:**
 - Quick Look, Open on GitHub, Copy Link
@@ -302,7 +304,7 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 **Clicks and buttons:**
 - Clicking a banner opens the thread on GitHub and marks it read.
 - The banner has three buttons:
-  - **Quick Look** (`eye`): opens the panel in Quick Look, using the focus return from §7.
+  - **Quick Look** (`eye`): opens the panel in Quick Look, using the focus return from §7. Like any open, it marks the thread read.
   - **Mark as Read** (`envelope.open`)
   - **Done** (`checkmark`)
 
@@ -338,7 +340,7 @@ The two opt-in actions show a warning in the rule editor, and they only act on t
 
 **Muting:**
 - **Mute Repository** adds the rule "Repository is X → Hide".
-- **Mute Thread** calls `PUT /notifications/threads/{id}/subscription` with `{ignored: true}`, then marks the thread Done.
+- **Mute Thread** calls `PUT /notifications/threads/{id}/subscription` with `{ignored: true}`, then archives the thread like Done (`DELETE`). It leaves the list and can be undone in the same window. Being unsubscribed, it only comes back for activity that still notifies you, such as a mention.
 - Muted threads are stored locally and listed at the bottom of the Filters tab.
 - **Unmute** calls `PUT …/subscription` with `{ignored: false}`.
 

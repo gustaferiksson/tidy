@@ -9,7 +9,6 @@ public enum MarkAllReadTarget: Codable, Hashable, Sendable {
 public enum PendingAction: Codable, Hashable, Sendable {
   case markRead
   case done
-  case remove
   case mute
   case markAllRead(MarkAllReadTarget)
 }
@@ -32,7 +31,6 @@ public struct PendingChange: Codable, Hashable, Sendable, Identifiable {
     switch action {
     case .markRead: return "Marked \(count) as read"
     case .done: return "Marked \(count) as done"
-    case .remove: return "Removed \(count) from Done"
     case .mute: return count == 1 ? "Muted thread" : "Muted \(count) threads"
     case .markAllRead: return "Marked all as read"
     }

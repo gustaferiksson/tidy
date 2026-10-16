@@ -329,51 +329,111 @@ struct InboxStoreTests {
     #expect(store.inbox.count == 8)
   }
 
-  @Test func doneMovesRowAndUndoRestoresIt() async {
+  @Test func doneRemovesRowAndUndoRestoresIt() async {
     let store = makeStore()
     await store.refresh()
     store.markDone(["101", "103"])
-    #expect(store.done.map(\.id) == ["101", "103"])
-    #expect(store.done.allSatisfy { !$0.isUnread })
-    #expect(!store.inbox.contains { $0.id == "101" })
+    #expect(!store.inbox.contains { ["101", "103"].contains($0.id) })
     #expect(store.undoableChange?.message == "Marked 2 as done")
     #expect(store.undo() == ["101", "103"])
-    #expect(store.done.isEmpty)
     #expect(store.inbox.first { $0.id == "101" }?.isUnread == true)
+    #expect(store.inbox.contains { $0.id == "103" })
     #expect(store.pending.isEmpty)
+    await store.flushPending()
+    try? await Task.sleep(for: .milliseconds(100))
+    #expect(requests("DELETE").isEmpty)
     #expect(requests("PATCH").isEmpty)
   }
 
-  @Test func doneCommitsAfterDelayWithPatchOnly() async throws {
-    let store = makeStore(commitDelay: .milliseconds(50))
+  @Test func doneDeletesOnlyAfterTheDelay() async throws {
+    let store = makeStore(commitDelay: .milliseconds(300))
     await store.refresh()
     store.markDone(["101", "102"])
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(requests("DELETE").isEmpty)
+    #expect(store.undoableChange != nil)
+    try await Task.sleep(for: .milliseconds(500))
+    #expect(Set(requests("DELETE")) == ["/notifications/threads/101", "/notifications/threads/102"])
+    #expect(requests("PATCH").isEmpty)
+    #expect(store.pending.isEmpty)
+    #expect(store.undoableChange == nil)
+    #expect(!store.inbox.contains { ["101", "102"].contains($0.id) })
+  }
+
+  @Test func doneIsNotPersistedAsASection() async throws {
+    let store = makeStore(commitDelay: .milliseconds(50))
+    await store.refresh()
+    store.markDone(["101"])
     try await Task.sleep(for: .milliseconds(300))
+    let files = try FileManager.default.contentsOfDirectory(atPath: directory.path())
+    #expect(!files.contains { $0.hasPrefix("done") })
+    #expect(makeStore().pending.isEmpty)
+  }
+
+  @Test func legacyDoneFileIsDeletedWithoutTouchingGitHub() async throws {
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let legacy = directory.appending(path: "done.json")
+    try JSONEncoder().encode([InboxItem(thread: Fixture.thread("101"))]).write(to: legacy)
+    let store = makeStore()
+    #expect(!FileManager.default.fileExists(atPath: legacy.path()))
+    await store.refresh()
+    await store.flushPending()
+    #expect(store.inbox.count == 8)
+    #expect(requests("DELETE").isEmpty)
+    #expect(requests("PATCH").isEmpty)
+  }
+
+  @Test func openingDetailsMarksReadWithoutUndo() async throws {
+    let store = makeStore()
+    await store.refresh()
+    store.markDone(["103"])
+    let doneChange = store.undoableChange
+    store.markRead(opening: "101")
+    #expect(store.inbox.first { $0.id == "101" }?.isUnread == false)
+    #expect(store.undoableChange == doneChange)
+    try await Task.sleep(for: .milliseconds(100))
     #expect(requests("PATCH") == ["/notifications/threads/101"])
     #expect(requests("DELETE").isEmpty)
+    store.markRead(opening: "101")
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(requests("PATCH") == ["/notifications/threads/101"])
+  }
+
+  @Test func loadingDetailsAloneDoesNotMarkRead() async throws {
+    let store = makeStore()
+    await store.refresh()
+    store.loadDetails(for: "101")
+    try await Task.sleep(for: .milliseconds(100))
+    #expect(store.inbox.first { $0.id == "101" }?.isUnread == true)
+    #expect(requests("PATCH").isEmpty)
+  }
+
+  @Test func openingDetailsBeforeFirstPollAppliesOnceLoaded() async {
+    let store = makeStore()
+    store.markRead(opening: "101")
     #expect(store.pending.isEmpty)
-    #expect(store.done.map(\.id) == ["101", "102"])
-    let reloaded = makeStore()
-    #expect(reloaded.done.map(\.id) == ["101", "102"])
+    await store.refresh()
+    #expect(store.inbox.first { $0.id == "101" }?.isUnread == false)
+    #expect(store.undoableChange == nil)
   }
 
   @Test func failedCommitRollsBackAndRetries() async {
-    server.on("PATCH", "/notifications/threads/101", respond: StubResponse(status: 500))
+    server.on("DELETE", "/notifications/threads/101", respond: StubResponse(status: 500))
     let store = makeStore()
     await store.refresh()
     store.markDone(["101", "103"])
     await store.flushPending()
-    #expect(store.done.map(\.id) == ["103"])
     #expect(store.inbox.first { $0.id == "101" }?.isUnread == true)
+    #expect(!store.inbox.contains { $0.id == "103" })
     #expect(store.failure?.count == 1)
     #expect(store.failure?.message == "Couldn't update 1 notification")
-    server.on("PATCH", "/notifications/threads/101", respond: StubResponse(status: 205))
+    server.on("DELETE", "/notifications/threads/101", respond: StubResponse(status: 204))
     store.retryFailed()
     #expect(store.failure == nil)
-    #expect(store.done.map(\.id) == ["101", "103"])
+    #expect(!store.inbox.contains { $0.id == "101" })
     await store.flushPending()
     #expect(store.pending.isEmpty)
-    #expect(store.done.map(\.id) == ["101", "103"])
+    #expect(requests("DELETE").filter { $0 == "/notifications/threads/101" }.count == 2)
   }
 
   @Test func offlineCommitStaysQueued() async {
@@ -425,13 +485,12 @@ struct InboxStoreTests {
     store.markRead(["103"])
     #expect(store.pending.isEmpty)
     await store.refresh()
-    #expect(store.done.map(\.id) == ["101"])
+    #expect(!store.inbox.contains { $0.id == "101" })
     #expect(store.inbox.first { $0.id == "103" }?.isUnread == false)
     #expect(store.undoableChange == nil)
     await store.flushPending()
-    #expect(Set(requests("PATCH")) == ["/notifications/threads/101", "/notifications/threads/103"])
-    await store.refresh()
-    #expect(store.done.map(\.id) == ["101"])
+    #expect(requests("DELETE") == ["/notifications/threads/101"])
+    #expect(requests("PATCH") == ["/notifications/threads/103"])
   }
 
   @Test func pendingChangesSurviveAPoll() async {
@@ -440,70 +499,23 @@ struct InboxStoreTests {
     store.markDone(["101"])
     store.markRead(["103"])
     await store.refresh()
-    #expect(store.done.map(\.id) == ["101"])
     #expect(!store.inbox.contains { $0.id == "101" })
     #expect(store.inbox.first { $0.id == "103" }?.isUnread == false)
   }
 
-  @Test func removeAllDoneDeletesEachThread() async {
-    let store = makeStore()
-    await store.refresh()
-    store.markDone(["101", "103"])
-    store.removeAllDone()
-    #expect(store.done.isEmpty)
-    await store.flushPending()
-    #expect(Set(requests("DELETE")) == ["/notifications/threads/101", "/notifications/threads/103"])
-    threads.withLock { $0.removeAll { ["101", "103"].contains($0.id) } }
-    await store.refresh()
-    #expect(!store.inbox.contains { $0.id == "101" })
-  }
-
-  @Test func moveToInboxIsLocal() async {
-    let store = makeStore()
-    await store.refresh()
-    store.markDone(["101"])
-    await store.flushPending()
-    store.moveToInbox(["101"])
-    #expect(store.done.isEmpty)
-    #expect(store.inbox.first?.id == "101")
-    #expect(store.inbox.first?.isUnread == false)
-  }
-
-  @Test func moveToInboxBeforeCommitCancelsDoneButStillMarksRead() async throws {
-    server.on("PATCH", "/notifications/threads/101") { [threads] _ in
-      threads.withLock { list in
-        for index in list.indices where list[index].id == "101" { list[index].unread = false }
-      }
-      return StubResponse(status: 205)
-    }
-    let store = makeStore()
-    await store.refresh()
-    store.markDone(["101", "103"])
-    store.moveToInbox(["101"])
-    #expect(store.undoableChange?.threadIDs == ["103"])
-    await store.refresh()
-    #expect(store.done.map(\.id) == ["103"])
-    #expect(store.inbox.contains { $0.id == "101" })
-    await store.flushPending()
-    try await Task.sleep(for: .milliseconds(100))
-    #expect(Set(requests("PATCH")) == ["/notifications/threads/101", "/notifications/threads/103"])
-    #expect(store.pending.isEmpty)
-    await store.refresh()
-    #expect(store.inbox.first { $0.id == "101" }?.isUnread == false)
-  }
-
-  @Test func doneThreadResurfacesWithNewActivity() async {
+  @Test func archivedThreadStaysGoneUntilNewActivity() async {
     let store = makeStore()
     await store.refresh()
     store.markDone(["103"])
     await store.flushPending()
+    await store.refresh()
+    #expect(!store.inbox.contains { $0.id == "103" })
     threads.withLock { list in
       let index = list.firstIndex { $0.id == "103" }!
       list[index].updatedAt = Self.now
       list[index].unread = true
     }
     await store.refresh()
-    #expect(store.done.isEmpty)
     #expect(store.inbox.first?.id == "103")
     #expect(store.inbox.first?.isUnread == true)
   }
@@ -511,11 +523,8 @@ struct InboxStoreTests {
   @Test func threadsDoneOnGitHubDisappear() async {
     let store = makeStore()
     await store.refresh()
-    store.markDone(["103"])
-    await store.flushPending()
-    threads.withLock { $0.removeAll { ["103", "102"].contains($0.id) } }
+    threads.withLock { $0.removeAll { $0.id == "102" } }
     await store.refresh()
-    #expect(store.done.isEmpty)
     #expect(!store.inbox.contains { $0.id == "102" })
   }
 
@@ -601,15 +610,15 @@ struct InboxStoreTests {
     #expect(makeStore().rules == store.rules)
   }
 
-  @Test func muteThreadUnsubscribesMarksReadAndMovesToDone() async throws {
+  @Test func muteThreadUnsubscribesAndArchives() async throws {
     server.on("PUT", "/notifications/threads/101/subscription", respond: StubResponse(status: 200))
     let store = makeStore()
     await store.refresh()
     store.muteThread("101")
-    #expect(store.done.map(\.id) == ["101"])
+    #expect(!store.inbox.contains { $0.id == "101" })
     await store.flushPending()
     #expect(server.requests.filter { $0.method != "GET" }.map { "\($0.method) \($0.path)" } == [
-      "PUT /notifications/threads/101/subscription", "PATCH /notifications/threads/101",
+      "PUT /notifications/threads/101/subscription", "DELETE /notifications/threads/101",
     ])
     #expect(store.muted.map(\.id) == ["101"])
     try await store.unmute("101")
@@ -661,12 +670,12 @@ struct InboxStoreTests {
   @Test func undecodableFilesAreMovedAsideNotOverwritten() async throws {
     try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
     let garbage = Data("{ not json".utf8)
-    try garbage.write(to: directory.appending(path: "done.json"))
+    try garbage.write(to: directory.appending(path: "pending.json"))
     let store = makeStore()
     await store.refresh()
-    store.markDone(["101"])
-    #expect(try Data(contentsOf: directory.appending(path: "done.json.corrupt")) == garbage)
-    #expect(makeStore().done.map(\.id) == ["101"])
+    store.markRead(["101"])
+    #expect(try Data(contentsOf: directory.appending(path: "pending.json.corrupt")) == garbage)
+    #expect(makeStore().pending.map(\.threadIDs) == [["101"]])
   }
 
   @Test func disconnectClearsAccountData() async {
@@ -676,7 +685,6 @@ struct InboxStoreTests {
     store.disconnect()
     #expect(!store.isSignedIn)
     #expect(store.inbox.isEmpty)
-    #expect(store.done.isEmpty)
     #expect(store.pending.isEmpty)
     #expect(await store.refresh() == .seconds(60))
   }

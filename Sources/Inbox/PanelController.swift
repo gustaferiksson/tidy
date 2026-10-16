@@ -10,6 +10,7 @@ final class PanelController {
     var selection: Set<String> = []
     var hoveredID: String?
     var revealID: String?
+    private(set) var openedIDs: Set<String> = []
 
     @ObservationIgnored private let store: InboxStore
     @ObservationIgnored private let updater: AppUpdater
@@ -36,6 +37,7 @@ final class PanelController {
     func panelDidClose() {
         guard isOpen else { return }
         isOpen = false
+        openedIDs = []
         Task { await store.flushPending() }
         Task { @MainActor in
             try? await Task.sleep(for: .milliseconds(200))
@@ -44,11 +46,15 @@ final class PanelController {
         }
     }
 
+    func showDetails(_ id: String) {
+        selection = [id]
+        quickLookID = id
+        openedIDs.insert(id)
+        store.markRead(opening: id)
+    }
+
     func open(quickLook id: String? = nil) {
-        if let id {
-            selection = [id]
-            quickLookID = id
-        }
+        if let id { showDetails(id) }
         guard !isOpen else { return }
         NSApp.activate()
         let button = NSApp.windows

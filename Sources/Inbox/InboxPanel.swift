@@ -9,7 +9,6 @@ struct InboxPanel: View {
     @Environment(AppUpdater.self) private var updater
     @Environment(\.openSettings) private var openSettings
     @AppStorage("showsAllThreads") private var showsAll = false
-    @AppStorage("doneExpanded") private var doneExpanded = false
 
     var body: some View {
         @Bindable var panel = panel
@@ -26,8 +25,8 @@ struct InboxPanel: View {
                 }
             }
             .navigationDestination(item: $panel.quickLookID) { id in
-                QuickLookView(id: id, order: items + (doneExpanded ? store.done : []))
-                    }
+                QuickLookView(id: id, order: items)
+            }
         }
         .toolbarVisibility(.hidden, for: .windowToolbar)
         .ignoresSafeArea(.container, edges: .top)
@@ -47,7 +46,7 @@ struct InboxPanel: View {
     }
 
     private var items: [InboxItem] {
-        showsAll ? store.visibleItems : store.visibleItems.filter { $0.isUnread || $0.id == panel.quickLookID }
+        showsAll ? store.visibleItems : store.visibleItems.filter { $0.isUnread || $0.id == panel.quickLookID || panel.openedIDs.contains($0.id) }
     }
 
     private var header: some View {
@@ -255,16 +254,14 @@ struct InboxPanel: View {
     private func undo() {
         let ids = store.undo()
         panel.selection = Set(ids)
-        guard let first = ids.first else { return }
-        if store.done.contains(where: { $0.id == first }) { doneExpanded = true }
-        panel.revealID = first
+        panel.revealID = ids.first
     }
 
     private var shortcuts: some View {
         ZStack {
             Button("Unread") { showsAll = false }.keyboardShortcut("1")
             Button("All") { showsAll = true }.keyboardShortcut("2")
-            Button("Select All") { panel.selection = Set((items + (doneExpanded ? store.done : [])).map(\.id)) }
+            Button("Select All") { panel.selection = Set(items.map(\.id)) }
                 .keyboardShortcut("a")
                 .disabled(panel.quickLookID != nil)
             Button("Mark All as Read", action: store.markAllRead).keyboardShortcut("i", modifiers: [.command, .shift])

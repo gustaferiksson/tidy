@@ -3,7 +3,6 @@ import TidyCore
 
 struct InboxRow: View {
     let item: InboxItem
-    let isDone: Bool
     let now: Date
     @Environment(InboxStore.self) private var store
     @Environment(PanelController.self) private var panel
@@ -23,7 +22,6 @@ struct InboxRow: View {
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
                 .accessibilityHidden(true)
             StateGlyphView(glyph: item.glyph)
-                .opacity(item.isUnread ? 1 : 0.6)
                 .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 5 }
                 .padding(.trailing, 8)
             VStack(alignment: .leading, spacing: 4) {
@@ -31,7 +29,7 @@ struct InboxRow: View {
                     Text(item.title)
                         .font(.body)
                         .fontWeight(item.isUnread ? .semibold : .regular)
-                        .foregroundStyle(item.isUnread ? .primary : .secondary)
+                        .foregroundStyle(.primary)
                         .lineLimit(2)
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .mask { titleMask }
@@ -61,8 +59,7 @@ struct InboxRow: View {
         .contentShape(Rectangle())
         .simultaneousGesture(TapGesture().onEnded {
             guard NSEvent.modifierFlags.isDisjoint(with: [.command, .shift]) else { return }
-            panel.selection = [item.id]
-            panel.quickLookID = item.id
+            panel.showDetails(item.id)
         })
         .overlay(alignment: .trailingFirstTextBaseline) {
             if isHovered {
@@ -87,17 +84,13 @@ struct InboxRow: View {
             }
         }
         .swipeActions(edge: .trailing) {
-            if isDone {
-                Button("Move to Inbox", systemImage: "tray.and.arrow.up") { store.moveToInbox([item.id]) }
-            } else {
-                Button("Done", systemImage: "checkmark") { store.markDone([item.id]) }
-                    .tint(.green)
-            }
+            Button("Done", systemImage: "checkmark") { store.markDone([item.id]) }
+                .tint(.green)
         }
     }
 
     private var titleMask: some View {
-        let buttonsWidth = isDone ? buttonSize : buttonSize * 2 + 4
+        let buttonsWidth = buttonSize * 2 + 4
         let covered = isHovered ? max(0, buttonsWidth - ageWidth - 8) : 0
         return HStack(spacing: 0) {
             Color.black
@@ -123,13 +116,9 @@ struct InboxRow: View {
 
     private var hoverButtons: some View {
         HStack(spacing: 4) {
-            if isDone {
-                hoverButton("Move to Inbox", symbol: "tray.and.arrow.up") { store.moveToInbox([item.id]) }
-            } else {
-                hoverButton("Mark as Read", symbol: "envelope.open") { store.markRead([item.id]) }
-                    .disabled(!item.isUnread)
-                hoverButton("Done", symbol: "checkmark") { store.markDone([item.id]) }
-            }
+            hoverButton("Mark as Read", symbol: "envelope.open") { store.markRead([item.id]) }
+                .disabled(!item.isUnread)
+            hoverButton("Done", symbol: "checkmark") { store.markDone([item.id]) }
         }
         .foregroundStyle(.secondary)
     }
