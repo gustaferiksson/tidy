@@ -162,6 +162,14 @@ struct InboxStoreTests {
     #expect(polls.map { $0.headers["If-Modified-Since"] } == [nil, "Thu, 15 Oct 2026 10:00:00 GMT", nil])
   }
 
+  @Test func threadShiftingAcrossPagesAppearsOnce() async {
+    threads.withLock { $0.append($0[0]) }
+    let store = makeStore()
+    await store.refresh()
+    #expect(store.inbox.count == 8)
+    #expect(Set(store.inbox.map(\.id)).count == 8)
+  }
+
   @Test func notModifiedKeepsListAndHonoursPollInterval() async {
     let store = makeStore()
     await store.refresh()

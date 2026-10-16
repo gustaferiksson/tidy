@@ -335,14 +335,16 @@ public final class InboxStore {
   private func merge(_ threads: [NotificationThread], isComplete: Bool) async {
     let since = GitHubClient.since(now: now())
     let cutoff = isComplete ? since : threads.map(\.updatedAt).min() ?? since
-    let fresh = Dictionary(threads.map { ($0.id, $0) }) { first, _ in first }
+    var seen: Set<String> = []
+    let unique = threads.filter { seen.insert($0.id).inserted }
+    let fresh = Dictionary(uniqueKeysWithValues: unique.map { ($0.id, $0) })
     let previous = Dictionary((done + inbox).map { ($0.id, $0) }) { first, _ in first }
     done = done.filter { item in
       guard let thread = fresh[item.id] else { return item.thread.updatedAt < cutoff }
       return !(thread.unread && thread.updatedAt > item.thread.updatedAt)
     }
     let doneIDs = Set(done.map(\.id))
-    inbox = threads.filter { !doneIDs.contains($0.id) }.sorted { $0.updatedAt > $1.updatedAt }.map { thread in
+    inbox = unique.filter { !doneIDs.contains($0.id) }.sorted { $0.updatedAt > $1.updatedAt }.map { thread in
       guard let old = previous[thread.id], old.thread.updatedAt == thread.updatedAt else {
         staleDetails[thread.id] = previous[thread.id]?.details
         return InboxItem(thread: thread)
