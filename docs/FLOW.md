@@ -185,6 +185,8 @@ With Increase Contrast on, Tidy uses the system colours instead (`.green`, `.pur
 | Latest comment and its author | `latest_comment_url`, only when the URL changed |
 | Security details | The alert endpoints in §5 |
 
+**Quick Look details** (§7) come from one GraphQL request (`POST /graphql`, the same classic token, host still `api.github.com`), sent only when Quick Look opens or steps to a pull request, issue or discussion. Polling never sends it, since it costs rate limit. The result is kept in memory per thread id and `updated_at`, so reopening a thread costs nothing until it has new activity. Discussions are looked up by exact title in a separate query; if the token can't read discussions, Quick Look shows the basic preview instead of an error. No extra token scope is asked for.
+
 **Cache:**
 - Responses are cached on disk in Application Support, keyed by URL, with their ETag.
 - Requests send `If-None-Match`, so a 304 costs nothing.
@@ -215,7 +217,14 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 - `Pull request #123 · owner/repo`.
 - The title.
 - Author, last commenter, reason, and the relative time (a tooltip shows the absolute time).
-- A preview of the latest comment, or the subject body if there are no comments. It's rendered as native Markdown (`AttributedString(markdown:)` with `.full` syntax). Images and HTML become links. The text is selectable.
+- Pull requests, issues and discussions then show their details (§6), below a divider:
+  - **Status:** a two-column grid (72 pt labels in secondary colour). Pull requests: Branch (`base ← head` in monospaced, then `+248 −96 · 9 files`), Reviews (the review decision, then one capsule per reviewer: 16 pt avatar, login and a state Octicon: `check` green approved, `file-diff` red changes requested, `comment` grey commented, `dot-fill` yellow requested), Checks (one line, `check-circle` / `x-circle` / `dot-fill`: "3 checks passed · 1 failing: lint · 1 pending"), Merge ("Conflicts with main", only when conflicting). Every subject: Category (discussions), Labels (capsules in the label's GitHub colour: solid in light mode with black or white text, tinted with a border in dark mode), Assignees, Milestone. Empty rows are left out.
+  - **Description:** "mira opened · 2 days ago" with a 20 pt avatar, then the body as Markdown. Bodies over 600 characters or 12 lines are cut at 160 pt with a fade and a Show More link.
+  - **Conversation:** the last 10 comments and reviews, oldest first, each with avatar, login, verb ("commented", "approved", "requested changes"), relative time (links to the comment) and the Markdown body indented under the avatar. Reviews without a body are a single event line with their Octicon. "View all N on GitHub" sits next to the heading when there are more. Discussion answers carry an Answer capsule, and an answered discussion's header reads "Answered".
+  - While loading: a redacted skeleton of the status grid and description. On failure: "Couldn't load the conversation" with Retry, and the basic preview below.
+- Everything else (and discussions the token can't read) shows a preview of the latest comment, or the subject body if there are no comments.
+- Markdown is rendered natively (`AttributedString(markdown:)` with `.full` syntax). Images and HTML become links. The text is selectable.
+- Avatars load only from GitHub hosts (§12 link rules); otherwise, and while loading, they show the login's initial on a colour derived from the login.
 - Security threads list their alerts: package, severity capsule, summary and GHSA ID. Each one links out.
 
 **Bottom bar:**
