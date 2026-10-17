@@ -13,7 +13,7 @@ Tidy runs on macOS 26 only. It lives in the menu bar as a `MenuBarExtra` with th
 | Menu bar label | A glyph, a count, or both |
 | Panel | 400 × 560 pt, fixed size. Shows the Inbox list, or Quick Look pushed on top of it |
 | macOS banners | Sent through `UNUserNotificationCenter` |
-| Settings scene | Tabs: General, GitHub, Notifications, Filters, About |
+| Settings scene | Tabs: General, GitHub, Notifications, Filters, Keyboard, About |
 
 Reopening the app from Finder or Spotlight (`applicationShouldHandleReopen`) opens the panel. That way people can still reach the inbox when the system hides the menu bar extra.
 
@@ -271,15 +271,18 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 | ↩ | Open Quick Look for the selected row and mark it read, exactly like a click. Does nothing unless exactly one row is selected. In Quick Look: Open on GitHub and mark read |
 | ⌘↩ | Open on GitHub and mark read. Opening a thread means you're handling it, as in Mail. Does nothing with more than 10 rows selected |
 | ⌥⌘↩ | Open on GitHub without marking read (⌥↩ also works in Quick Look) |
-| E | Done (archive) |
+| E | Done (archive). In the list, the selection moves to the next row |
 | ⇧I / ⇧⌘I | Mark as Read / Mark All as Read |
+| ⇧M | Mute Thread. In the list, the selection moves to the next row |
 | ⌘A / ⌘Z | Select all / Undo |
 | ⌘R | Refresh |
 | ⌘1 / ⌘2 | Switch to Unread / All |
 | Esc | Close Quick Look, otherwise close the panel |
 | ⌘, | Open Settings |
 
-**Hover:** two plain trailing 24 pt buttons fade in, secondary colour with a pointing-hand cursor and tooltips: `envelope.open` (Mark as Read) and `checkmark` (Done). Rows keep that space free so titles never sit under them. Rows have no separators.
+E, ⇧I and ⇧M follow GitHub's notifications inbox and can be changed in Settings › Keyboard. They work only while the list or Quick Look has focus, so plain letters are safe. Everything else in this table is fixed.
+
+**Hover:** two plain trailing 24 pt buttons fade in, secondary colour with a pointing-hand cursor and tooltips: `envelope.open` (Mark as Read) and `checkmark` (Done). The Done tooltip names its current key, for example "Done (E)". Rows keep that space free so titles never sit under them. Rows have no separators.
 
 **Swipe:** as in Mail, swiping right reveals the leading action, Mark as Read, and swiping left reveals the trailing action, Done.
 
@@ -287,6 +290,8 @@ Quick Look is the only detail view. It's pushed inside the panel with `Navigatio
 - Quick Look, Open on GitHub, Copy Link
 - Mark as Read, Done
 - Mute Thread, Mute Repository
+
+Mark as Read, Done and Mute Thread show their current keys as native key equivalents. Quick Look's Mark as Read and Done buttons name them in their tooltips.
 
 ## 10. macOS notifications
 
@@ -366,6 +371,7 @@ The standard `Settings` scene with toolbar tabs, about 480 pt wide.
 | GitHub | When signed out: a `SecureField` labelled "Personal access token (classic)", a **Create Token…** link to `https://github.com/settings/tokens/new?scopes=notifications,repo&description=Tidy`, and **Connect**. Connect calls `GET /user` and requires `repo` in `X-OAuth-Scopes`. A token that starts with `github_pat_` is rejected inline before any network call: "Fine-grained tokens can't read notifications. Use a classic token." Other errors also show inline under the field. When signed in: avatar, login, a scope checklist, **Replace Token…** and **Disconnect**. The token lives in the Keychain (generic password, this device only) |
 | Notifications | The system permission status, with **Open System Settings…** for sound, style and turning banners off. A "Notify for" checklist of every reason, all on by default, grouped as Participating, Security and Activity |
 | Filters | The rule list (+ and −, drag to reorder), a sheet for editing a rule, and the muted threads |
+| Keyboard | A shortcut recorder for Done, Mark as Read and Mute Thread. Click a field, then press a key with or without modifiers; ⌫ clears it to none and Esc cancels. A key that the panel already uses (↑ ↓ ↩ Space Esc with any modifiers, ⌘R ⌘Z ⌘1 ⌘2 ⌘, ⌘Q ⌘A ⌘C ⌘[ ⇧⌘I), a non-printing key, or another action's shortcut is rejected inline and the field keeps recording. **Restore Defaults** brings back E, ⇧I and ⇧M |
 | About | Icon, name, version, and a GitHub link |
 
 The "Notify for" list covers reasons only. Filters handle everything else.

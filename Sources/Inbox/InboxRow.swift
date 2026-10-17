@@ -121,7 +121,7 @@ struct InboxRow: View {
         .buttonStyle(.borderless)
         .pointerStyle(.link)
         .foregroundStyle(.secondary)
-        .help("Done")
+        .help(AppSettings.shared.shortcuts[.done].map { "Done (\($0.displayString))" } ?? "Done")
         .accessibilityLabel("Done")
     }
 }

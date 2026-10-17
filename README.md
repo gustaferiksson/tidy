@@ -34,10 +34,13 @@ Tidy treats GitHub notifications like email. Opening a thread reads it, Done arc
 | <kbd>⌘</kbd><kbd>↩</kbd> | Open on GitHub and mark read (<kbd>⌥</kbd><kbd>⌘</kbd><kbd>↩</kbd> leaves it unread) |
 | <kbd>E</kbd> | Done |
 | <kbd>⇧</kbd><kbd>I</kbd> / <kbd>⇧</kbd><kbd>⌘</kbd><kbd>I</kbd> | Mark as Read / Mark All as Read |
+| <kbd>⇧</kbd><kbd>M</kbd> | Mute Thread |
 | <kbd>⌘</kbd><kbd>Z</kbd> | Undo |
 | <kbd>⌘</kbd><kbd>1</kbd> / <kbd>⌘</kbd><kbd>2</kbd> | Unread / All |
 | <kbd>⌘</kbd><kbd>R</kbd> | Refresh |
 | <kbd>Esc</kbd> | Close Quick Look, then the panel |
+
+Done, Mark as Read and Mute Thread follow GitHub's notifications inbox and can be changed in Settings › Keyboard.
 
 ## Install
 

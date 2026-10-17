@@ -9,6 +9,7 @@ struct InboxList: View {
     let showsAll: Bool
     @Environment(InboxStore.self) private var store
     @Environment(PanelController.self) private var panel
+    private let settings = AppSettings.shared
     @FocusState private var isFocused: Bool
 
     var body: some View {
@@ -60,12 +61,17 @@ struct InboxList: View {
                 if !press.modifiers.contains(.option) { store.markRead(selected.map(\.id)) }
                 return .handled
             }
-            .onKeyPress(characters: CharacterSet(charactersIn: "eEI")) { press in
-                guard !selected.isEmpty, press.modifiers.isDisjoint(with: [.command, .control, .option]) else { return .ignored }
-                if press.characters == "I" {
+            .onKeyPress(phases: [.down, .repeat]) { _ in
+                guard !selected.isEmpty,
+                      let shortcut = NSApp.currentEvent.flatMap(KeyShortcut.init(event:)),
+                      let action = settings.shortcuts.action(for: shortcut)
+                else { return .ignored }
+                if action == .markRead {
                     store.markRead(selected.map(\.id))
+                } else if action == .done {
+                    dismissSelected { store.markDone($0) }
                 } else {
-                    markDone(selected)
+                    dismissSelected { ids in for id in ids { store.muteThread(id) } }
                 }
                 return .handled
             }
@@ -111,10 +117,10 @@ struct InboxList: View {
         }
     }
 
-    private func markDone(_ targets: [InboxItem]) {
+    private func dismissSelected(_ apply: ([String]) -> Void) {
         let lastIndex = items.lastIndex { panel.selection.contains($0.id) }
         let next = lastIndex.flatMap { items[($0 + 1)...].first { !panel.selection.contains($0.id) } }
-        store.markDone(targets.map(\.id))
+        apply(selected.map(\.id))
         panel.selection = next.map { [$0.id] } ?? []
     }
 
@@ -135,12 +141,15 @@ struct InboxList: View {
             Divider()
             if targets.contains(where: \.isUnread) {
                 Button("Mark as Read") { store.markRead(targets.map(\.id)) }
+                    .keyboardShortcut(settings.shortcuts[.markRead]?.keyboardShortcut)
             }
             Button("Done") { store.markDone(targets.map(\.id)) }
+                .keyboardShortcut(settings.shortcuts[.done]?.keyboardShortcut)
             Divider()
             Button("Mute Thread") {
                 for item in targets { store.muteThread(item.id) }
             }
+            .keyboardShortcut(settings.shortcuts[.muteThread]?.keyboardShortcut)
             Button("Mute Repository") {
                 for repository in Set(targets.map(\.thread.repository.fullName)) { store.muteRepository(repository) }
             }
