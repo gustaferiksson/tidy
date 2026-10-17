@@ -7,6 +7,7 @@ struct QuickLookView: View {
     let order: [InboxItem]
     @Environment(InboxStore.self) private var store
     @Environment(PanelController.self) private var panel
+    private let settings = AppSettings.shared
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
     @FocusState private var isFocused: Bool
@@ -61,9 +62,18 @@ struct QuickLookView: View {
             open(item, markingRead: !press.modifiers.contains(.option))
             return .handled
         }
-        .onKeyPress(characters: CharacterSet(charactersIn: "eI")) { press in
-            guard let item, press.modifiers.isDisjoint(with: [.command, .control, .option]) else { return .ignored }
-            if press.characters == "I" { store.markRead([item.id]) } else { markDone(item) }
+        .onKeyPress(phases: [.down, .repeat]) { _ in
+            guard let item,
+                  let shortcut = NSApp.currentEvent.flatMap(KeyShortcut.init(event:)),
+                  let action = settings.shortcuts.action(for: shortcut)
+            else { return .ignored }
+            if action == .markRead {
+                store.markRead([item.id])
+            } else if action == .done {
+                markDone(item)
+            } else {
+                muteThread(item)
+            }
             return .handled
         }
     }
@@ -154,7 +164,9 @@ struct QuickLookView: View {
                 .keyboardShortcut(.defaultAction)
             Button("Mark as Read") { store.markRead([item.id]) }
                 .disabled(!item.isUnread)
+                .help(settings.shortcuts[.markRead].map { "Mark as Read (\($0.displayString))" } ?? "Mark as Read")
             Button("Done") { markDone(item) }
+                .help(settings.shortcuts[.done].map { "Done (\($0.displayString))" } ?? "Done")
             Spacer(minLength: 0)
             Menu {
                 Button("Copy Link") {
