@@ -48,6 +48,20 @@ final class PanelController {
         }
     }
 
+    func refreshHoverAfterListChange() {
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(350))
+            guard let window = panelWindow, window.isVisible, window.frame.contains(NSEvent.mouseLocation) else { return }
+            // Rows sliding under a stationary mouse get no hover or pointer-style update until the mouse moves.
+            let event = NSEvent.mouseEvent(
+                with: .mouseMoved, location: window.convertPoint(fromScreen: NSEvent.mouseLocation), modifierFlags: [],
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                context: nil, eventNumber: 0, clickCount: 0, pressure: 0
+            )
+            event.map(window.sendEvent)
+        }
+    }
+
     func showDetails(_ id: String) {
         selection = [id]
         quickLookID = id
