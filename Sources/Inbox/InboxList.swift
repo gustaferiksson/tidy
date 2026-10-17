@@ -25,6 +25,7 @@ struct InboxList: View {
                 withAnimation { proxy.scrollTo(id) }
                 panel.revealID = nil
             }
+            .onChange(of: items.map(\.id)) { panel.refreshHoverAfterListChange() }
             .focusable(interactions: .edit)
             .focusEffectDisabled()
             .focused($isFocused)
