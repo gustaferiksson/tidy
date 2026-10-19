@@ -1,0 +1,6 @@
+[
+  {"id": 1, "user": {"login": "hubot", "avatar_url": null}, "body": "Please add tests.", "state": "CHANGES_REQUESTED", "html_url": "https://github.com/octo/app/pull/42#pullrequestreview-1", "submitted_at": "2026-10-15T09:00:00Z"},
+  {"id": 2, "user": {"login": "octocat", "avatar_url": null}, "body": "", "state": "APPROVED", "html_url": "https://github.com/octo/app/pull/42#pullrequestreview-2", "submitted_at": "2026-10-15T09:59:30Z"},
+  {"id": 3, "user": {"login": "lisa", "avatar_url": null}, "body": "", "state": "COMMENTED", "html_url": "https://github.com/octo/app/pull/42#pullrequestreview-3", "submitted_at": "2026-10-15T09:59:40Z"},
+  {"id": 4, "user": {"login": "mona", "avatar_url": null}, "body": "", "state": "PENDING", "html_url": "https://github.com/octo/app/pull/42#pullrequestreview-4"}
+]

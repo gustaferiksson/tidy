@@ -32,12 +32,14 @@ public struct Comment: Codable, Hashable, Sendable {
   public var author: GitHubUser?
   public var body: String
   public var htmlURL: URL?
+  public var review: ReviewState?
 
-  public init(apiURL: URL, author: GitHubUser?, body: String, htmlURL: URL?) {
+  public init(apiURL: URL, author: GitHubUser?, body: String, htmlURL: URL?, review: ReviewState? = nil) {
     self.apiURL = apiURL
     self.author = author
     self.body = body
     self.htmlURL = htmlURL
+    self.review = review
   }
 }
 
@@ -87,7 +89,7 @@ public struct InboxItem: Codable, Hashable, Sendable, Identifiable {
   public var glyph: StateGlyph { StateGlyph(kind: thread.subject.kind, state: state, severity: severity) }
   public var webURL: URL { WebLink.url(for: thread, details: details) }
   public var author: GitHubUser? { details?.author }
-  public var previewMarkdown: String? { details?.latestComment?.body ?? details?.body }
+  public var previewMarkdown: String? { details?.latestComment.flatMap { $0.body.isEmpty ? nil : $0.body } ?? details?.body }
 
   public var title: String {
     guard thread.subject.kind == .dependabotAlerts, let alerts = details?.alerts else { return thread.subject.title }

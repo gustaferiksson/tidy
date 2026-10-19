@@ -33,6 +33,31 @@ struct EnrichmentTests {
     #expect(server.requests.map(\.path) == ["/repos/octo/app/pulls/42"])
   }
 
+  @Test func pullRequestReviewBecomesLatestComment() async throws {
+    let server = StubServer()
+    server.on("GET", "/repos/octo/app/pulls/42", respond: .json("pull"))
+    server.on("GET", "/repos/octo/app/pulls/42/reviews", respond: .json("reviews"))
+    var thread = Fixture.thread("101")
+    thread.subject.latestCommentURL = thread.subject.url
+    let details = try await server.client.details(for: thread)
+    #expect(details.latestComment?.review == .approved)
+    #expect(details.latestComment?.author?.login == "octocat")
+    #expect(details.latestComment?.apiURL == URL(string: "https://api.github.com/repos/octo/app/pulls/42/reviews/2"))
+    let item = InboxItem(thread: thread, status: .loaded(details))
+    #expect(item.webURL == URL(string: "https://github.com/octo/app/pull/42#pullrequestreview-2"))
+    #expect(item.previewMarkdown == "Adds **dark mode**.\n\n- [x] Tests")
+  }
+
+  @Test func ignoresReviewOlderThanTheNotification() async throws {
+    let server = StubServer()
+    server.on("GET", "/repos/octo/app/pulls/42", respond: .json("pull"))
+    server.on("GET", "/repos/octo/app/pulls/42/reviews", respond: .json("reviews"))
+    var thread = Fixture.thread("101")
+    thread.subject.latestCommentURL = nil
+    thread.updatedAt = ISO8601DateFormatter().date(from: "2026-10-15T10:05:00Z")!
+    #expect(try await server.client.details(for: thread).latestComment == nil)
+  }
+
   @Test func mergedAndClosedPullRequests() async throws {
     let server = StubServer()
     server.on("GET", "/repos/octo/app/pulls/42") { _ in

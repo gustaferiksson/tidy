@@ -103,7 +103,7 @@ On failure the affected rows roll back and `failure` is set. Offline failures st
 
 `events: AsyncStream<InboxEvent>`, single consumer.
 
-- `.newThread(InboxItem)`: post a banner. Title `item.title`, subtitle `"\(repo) · \(item.thread.reason.title)"`, body first line of `item.previewMarkdown`, `threadIdentifier` = repo full name.
+- `.newThread(InboxItem)`: post a banner. Title `item.title`, subtitle `"\(repo) · \(item.thread.reason.title)"`, body first line of `item.previewMarkdown` (or `"Approved by octocat: …"` when `latestComment` is a PR review), `threadIdentifier` = repo full name.
 - `.summary(count:)`: more than 5 new at once; post "N new notifications" instead.
 - `.withdraw(threadIDs:)`: remove delivered banners for these threads. Sent for local actions and for threads a poll shows were read elsewhere (github.com).
 
@@ -121,7 +121,7 @@ The store already applies: baseline-only first fetch after launch or token chang
 | `state: SubjectState?`, `severity: Severity?` | Quick Look state word (`state.title`), security severity word (`severity.title`) |
 | `webURL: URL` | Open on GitHub / Copy Link (anchored to the latest comment when known) |
 | `author: GitHubUser?`, `details?.latestComment?.author` | Quick Look people |
-| `previewMarkdown: String?` | Latest comment body, else subject body (Markdown source) |
+| `previewMarkdown: String?` | Latest non-empty comment body, else subject body (Markdown source). For a pull request with no newer comment, `latestComment` is its newest review when that review is what updated the thread (submitted within two minutes of `updatedAt`), with `review` set |
 | `details?.alerts: [SecurityAlert]` | Quick Look alert list: `package`, `severity`, `summary`, `advisoryID`, `htmlURL` |
 | `thread.number` | `#123` for PRs, issues, discussions |
 
