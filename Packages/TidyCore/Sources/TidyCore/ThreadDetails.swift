@@ -102,7 +102,7 @@ public enum ReviewDecision: String, Hashable, Sendable {
   }
 }
 
-public enum ReviewState: String, Hashable, Sendable {
+public enum ReviewState: String, Codable, Hashable, Sendable {
   case approved, changesRequested, commented, dismissed, requested
 
   init?(apiValue: String?) {
