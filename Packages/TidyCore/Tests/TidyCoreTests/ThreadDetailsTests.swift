@@ -210,7 +210,7 @@ struct ThreadDetailsStoreTests {
   }
 
   func graphQLRequests() -> Int {
-    server.requests.count { $0.path == "/graphql" }
+    server.requests.count { $0.path == "/graphql" && $0.json?["query"] as? String != GitHubClient.activityQuery }
   }
 
   func waitForLoad(_ store: InboxStore, _ id: String) async throws -> ThreadDetailsStatus? {

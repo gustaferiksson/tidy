@@ -1,0 +1,16 @@
+{
+  "data": {
+    "viewer": {"login": "mona"},
+    "repository": {
+      "issueOrPullRequest": {
+        "createdAt": "2026-10-14T07:00:00Z",
+        "author": {"login": "mona"},
+        "timelineItems": {"nodes": [
+          {"type": "PullRequestReview", "author": {"login": "octocat"}, "body": "", "createdAt": "2026-10-15T09:50:00Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-2", "state": "APPROVED"},
+          {"type": "MergedEvent", "actor": {"login": "mona"}, "createdAt": "2026-10-15T09:59:39Z"},
+          {"type": "ClosedEvent", "actor": {"login": "mona"}, "createdAt": "2026-10-15T09:59:39Z"}
+        ]}
+      }
+    }
+  }
+}

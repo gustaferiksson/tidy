@@ -1,0 +1,16 @@
+{
+  "data": {
+    "viewer": {"login": "mona"},
+    "repository": {
+      "issueOrPullRequest": {
+        "createdAt": "2026-10-15T07:00:00Z",
+        "author": {"login": "hubot"},
+        "timelineItems": {"nodes": [
+          {"type": "PullRequestCommit", "commit": {"committedDate": "2026-10-15T06:59:00Z", "messageHeadline": "Start", "author": {"name": "Hubot", "user": {"login": "hubot"}}}},
+          {"type": "ReviewRequestedEvent", "actor": {"login": "hubot"}, "createdAt": "2026-10-15T09:59:40Z", "requestedReviewer": {"login": "mona"}},
+          {"type": "ReviewRequestedEvent", "actor": {"login": "hubot"}, "createdAt": "2026-10-15T09:59:40Z", "requestedReviewer": {}}
+        ]}
+      }
+    }
+  }
+}

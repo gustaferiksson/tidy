@@ -6,6 +6,7 @@ public struct SubjectDetails: Codable, Hashable, Sendable {
   public var body: String?
   public var htmlURL: URL?
   public var latestComment: Comment?
+  public var activity: Activity?
   public var alerts: [SecurityAlert]
 
   public init(
@@ -14,6 +15,7 @@ public struct SubjectDetails: Codable, Hashable, Sendable {
     body: String? = nil,
     htmlURL: URL? = nil,
     latestComment: Comment? = nil,
+    activity: Activity? = nil,
     alerts: [SecurityAlert] = []
   ) {
     self.state = state
@@ -21,6 +23,7 @@ public struct SubjectDetails: Codable, Hashable, Sendable {
     self.body = body
     self.htmlURL = htmlURL
     self.latestComment = latestComment
+    self.activity = activity
     self.alerts = alerts
   }
 
@@ -32,14 +35,12 @@ public struct Comment: Codable, Hashable, Sendable {
   public var author: GitHubUser?
   public var body: String
   public var htmlURL: URL?
-  public var review: ReviewState?
 
-  public init(apiURL: URL, author: GitHubUser?, body: String, htmlURL: URL?, review: ReviewState? = nil) {
+  public init(apiURL: URL, author: GitHubUser?, body: String, htmlURL: URL?) {
     self.apiURL = apiURL
     self.author = author
     self.body = body
     self.htmlURL = htmlURL
-    self.review = review
   }
 }
 
@@ -89,6 +90,10 @@ public struct InboxItem: Codable, Hashable, Sendable, Identifiable {
   public var glyph: StateGlyph { StateGlyph(kind: thread.subject.kind, state: state, severity: severity) }
   public var webURL: URL { WebLink.url(for: thread, details: details) }
   public var author: GitHubUser? { details?.author }
+  public var activity: Activity? {
+    details?.activity
+      ?? details?.latestComment.map { Activity(actor: $0.author?.login ?? "Someone", kind: .commented, detail: $0.body, htmlURL: $0.htmlURL) }
+  }
   public var previewMarkdown: String? { details?.latestComment.flatMap { $0.body.isEmpty ? nil : $0.body } ?? details?.body }
 
   public var title: String {

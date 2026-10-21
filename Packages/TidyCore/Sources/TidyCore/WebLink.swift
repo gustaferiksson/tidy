@@ -2,7 +2,7 @@ import Foundation
 
 public enum WebLink {
   public static func url(for thread: NotificationThread, details: SubjectDetails?) -> URL {
-    if let commentURL = details?.latestComment?.htmlURL { return commentURL }
+    if let activityURL = details?.activity?.htmlURL ?? details?.latestComment?.htmlURL { return activityURL }
     let repo = thread.repository.htmlURL
     guard let subjectURL = thread.subject.url else { return fallback(for: thread.subject.kind, repository: repo) }
     guard let page = details?.htmlURL ?? webURL(forAPI: subjectURL) else {

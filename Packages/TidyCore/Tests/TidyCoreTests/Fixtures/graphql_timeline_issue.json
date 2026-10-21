@@ -1,0 +1,14 @@
+{
+  "data": {
+    "viewer": {"login": "octocat"},
+    "repository": {
+      "issueOrPullRequest": {
+        "createdAt": "2026-10-15T08:59:30Z",
+        "author": {"login": "mona"},
+        "timelineItems": {"nodes": [
+          {"type": "AssignedEvent", "actor": {"login": "mona"}, "createdAt": "2026-10-15T08:59:31Z", "assignee": {}}
+        ]}
+      }
+    }
+  }
+}

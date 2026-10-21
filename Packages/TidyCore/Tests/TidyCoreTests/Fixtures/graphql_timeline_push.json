@@ -1,0 +1,18 @@
+{
+  "data": {
+    "viewer": {"login": "mona"},
+    "repository": {
+      "issueOrPullRequest": {
+        "createdAt": "2026-10-01T08:00:00Z",
+        "author": {"login": "lisa"},
+        "timelineItems": {"nodes": [
+          {"type": "ReviewRequestedEvent", "actor": {"login": "lisa"}, "createdAt": "2026-10-14T08:00:00Z", "requestedReviewer": {"login": "mona"}},
+          {"type": "PullRequestCommit", "commit": {"committedDate": "2026-10-15T09:20:00Z", "messageHeadline": "Bump version", "author": {"name": "Octo Cat", "user": {"login": "octocat"}}}},
+          {"type": "PullRequestCommit", "commit": {"committedDate": "2026-10-15T09:25:00Z", "messageHeadline": "Fix contrast", "author": {"name": "Lisa Bot", "user": null}}},
+          {"type": "PullRequestCommit", "commit": {"committedDate": "2026-10-15T09:33:00Z", "messageHeadline": "Tweak colours", "author": {"name": "Lisa Bot", "user": null}}},
+          {"type": "PullRequestCommit", "commit": {"committedDate": "2026-10-15T09:41:00Z", "messageHeadline": "Use system accent", "author": {"name": "Lisa Bot", "user": null}}}
+        ]}
+      }
+    }
+  }
+}
