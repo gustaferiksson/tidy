@@ -1,0 +1,35 @@
+{
+  "data": {
+    "repository": {
+      "issueOrPullRequest": {
+        "kind": "PullRequest",
+        "author": {"login": "mona", "avatarUrl": null},
+        "createdAt": "2026-10-14T08:00:00Z",
+        "url": "https://github.com/octo/app/pull/43",
+        "body": "Exports comparison fields.",
+        "baseRefName": "main",
+        "headRefName": "mona/export",
+        "comments": {"filteredCount": 2, "nodes": [
+          {"type": "IssueComment", "id": "IC_1", "author": {"login": "octocat", "avatarUrl": null}, "body": "Rebased on main.", "createdAt": "2026-10-15T09:00:00Z", "url": "https://github.com/octo/app/pull/43#issuecomment-1"},
+          {"type": "PullRequestReview", "id": "PRR_1", "author": {"login": "lisa", "avatarUrl": null}, "body": "", "createdAt": "2026-10-15T10:30:00Z", "url": "https://github.com/octo/app/pull/43#pullrequestreview-1", "state": "COMMENTED"}
+        ]},
+        "events": {"nodes": [
+          {"type": "PullRequestCommit", "id": "PURC_1", "commit": {"abbreviatedOid": "a1bf3b9", "messageHeadline": "Add the export fields", "committedDate": "2026-10-01T08:00:00Z", "url": "https://github.com/octo/app/commit/a1bf3b9", "author": {"name": "Mona Lisa", "user": {"login": "mona", "avatarUrl": null}}}},
+          {"type": "PullRequestCommit", "id": "PURC_2", "commit": {"abbreviatedOid": "b2c4d6e8f", "messageHeadline": "Resolve comparison fields", "committedDate": "2026-09-20T08:00:00Z", "url": null, "author": {"name": "Mona Lisa", "user": {"login": "mona", "avatarUrl": null}}}},
+          {"type": "PullRequestCommit", "id": "PURC_3", "commit": {"abbreviatedOid": "c3d5e7f", "messageHeadline": "Cover the export in tests", "committedDate": "2026-10-03T08:00:00Z", "author": {"name": "Mona Lisa", "user": {"login": "mona", "avatarUrl": null}}}},
+          {"type": "PullRequestCommit", "id": "PURC_4", "commit": {"abbreviatedOid": "d4e6f8a", "messageHeadline": "Bump the schema", "committedDate": "2026-10-03T09:00:00Z", "author": {"name": "Release Bot", "user": null}}},
+          {"type": "ReviewRequestedEvent", "id": "RRE_1", "actor": {"login": "mona", "avatarUrl": null}, "createdAt": "2026-10-15T10:00:00Z", "requestedReviewer": {"login": "lisa", "avatarUrl": null}},
+          {"type": "ReviewRequestedEvent", "id": "RRE_2", "actor": {"login": "mona", "avatarUrl": null}, "createdAt": "2026-10-15T10:00:45Z", "requestedReviewer": {"login": "hubot", "avatarUrl": null}},
+          {"type": "ReviewRequestedEvent", "id": "RRE_3", "actor": {"login": "mona", "avatarUrl": null}, "createdAt": "2026-10-15T10:01:20Z", "requestedReviewer": {"login": "octocat", "avatarUrl": null}},
+          {"type": "LabeledEvent", "id": "LE_1", "actor": {"login": "mona", "avatarUrl": null}, "createdAt": "2026-10-15T11:00:00Z", "label": {"name": "ui", "color": "a2eeef"}},
+          {"type": "UnlabeledEvent", "id": "UNLE_1", "actor": {"login": "mona", "avatarUrl": null}, "createdAt": "2026-10-15T11:01:00Z", "label": {"name": "wip", "color": null}},
+          {"type": "RenamedTitleEvent", "id": "RTE_1", "actor": {"login": "mona", "avatarUrl": null}, "createdAt": "2026-10-15T11:02:00Z", "previousTitle": "WIP export", "currentTitle": "Export comparison fields"},
+          {"type": "CrossReferencedEvent", "id": "CRE_1", "actor": {"login": "hubot", "avatarUrl": null}, "createdAt": "2026-10-15T12:00:00Z", "source": {"number": 9, "title": "Exports miss comparison fields", "url": "https://github.com/octo/web/issues/9", "repository": {"nameWithOwner": "octo/web"}}},
+          {"type": "MergedEvent", "id": "ME_1", "actor": {"login": "mona", "avatarUrl": null}, "createdAt": "2026-10-15T13:00:00Z", "mergeRefName": "main"},
+          {"type": "HeadRefDeletedEvent", "id": "HRDE_1", "actor": {"login": "mona", "avatarUrl": null}, "createdAt": "2026-10-15T13:00:00Z", "headRefName": "mona/export"},
+          {"type": "ClosedEvent", "id": "CE_1", "actor": {"login": "mona", "avatarUrl": null}, "createdAt": "2026-10-15T13:00:01Z"}
+        ]}
+      }
+    }
+  }
+}

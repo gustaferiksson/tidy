@@ -92,11 +92,12 @@ struct QuickLookView: View {
             ? "State unavailable"
             : (item.thread.subject.kind.isSecurity ? item.severity?.title : state?.title) ?? item.thread.subject.kind.title
         let kindLine = [item.thread.subject.kind.title + (item.thread.number.map { " #\($0)" } ?? ""), item.thread.repository.fullName]
-        let commenter = item.details?.latestComment?.author?.login
+        let commenter = rich?.details == nil ? item.details?.latestComment?.author?.login : nil
         let people = [
             item.author.map { "by \($0.login)" },
             commenter.flatMap { $0 == item.author?.login ? nil : "last comment by \($0)" },
         ].compactMap(\.self).joined(separator: ", ")
+        let context = [people.isEmpty ? nil : people, item.thread.reason.title].compactMap(\.self).joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 4) {
                 StateGlyphView(glyph: glyph)
@@ -110,13 +111,11 @@ struct QuickLookView: View {
             Text(item.title)
                 .font(.title3.weight(.semibold))
                 .fixedSize(horizontal: false, vertical: true)
-            HStack(spacing: 0) {
-                Text([people.isEmpty ? nil : people, item.thread.reason.title].compactMap(\.self).joined(separator: " · ") + " · ")
-                Text(item.thread.updatedAt, format: .relative(presentation: .named))
-                    .help(item.thread.updatedAt.formatted(date: .complete, time: .shortened))
-            }
-            .font(.subheadline)
-            .foregroundStyle(.secondary)
+            Text("\(context) · \(item.thread.updatedAt, format: .relative(presentation: .named, unitsStyle: .abbreviated))")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+                .help(item.thread.updatedAt.formatted(date: .complete, time: .shortened))
             Divider().padding(.vertical, 4)
             if !ThreadDetails.isSupported(item.thread) || rich == .unavailable {
                 preview(of: item)
@@ -128,7 +127,7 @@ struct QuickLookView: View {
                 .font(.subheadline)
                 preview(of: item)
             } else {
-                ThreadDetailsView(details: rich?.details).id(item.id)
+                ThreadDetailsView(details: rich?.details, kind: item.thread.subject.kind).id(item.id)
             }
         }
         .textSelection(.enabled)

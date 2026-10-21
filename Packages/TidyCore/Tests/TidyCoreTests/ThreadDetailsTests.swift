@@ -21,6 +21,7 @@ struct ThreadDetailsTests {
     let query = try #require(request.json?["query"] as? String)
     #expect(query.contains("issueOrPullRequest(number: $number)"))
     #expect(query.contains("statusCheckRollup"))
+    #expect(query.contains("comments: timelineItems(last: 10, itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW])"), "events can't crowd comments out")
   }
 
   @Test func decodesPullRequest() async throws {
@@ -51,6 +52,7 @@ struct ThreadDetailsTests {
     #expect(details.comments.last?.author?.login == "hubot")
     #expect(details.comments.first?.url == URL(string: "https://github.com/octo/app/pull/42#issuecomment-1"))
     #expect(details.totalComments == 14)
+    #expect(details.hasOlderComments)
     #expect(details.discussion == nil)
   }
 
@@ -62,7 +64,41 @@ struct ThreadDetailsTests {
     let queries = server.requests.compactMap { $0.json?["query"] as? String }
     #expect(queries.count == 2)
     #expect(!queries[0].contains("on Team"), "a Team selection without read:org makes GitHub reject the whole query")
-    #expect(queries[1].contains("... on Team { slug avatarUrl(size: 40) }"))
+    #expect(queries[1].ranges(of: "... on Team { slug avatarUrl(size: 40) }").count == 3)
+  }
+
+  @Test func decodesTheConversationTimelineInNodeOrder() async throws {
+    let server = StubServer()
+    server.on("POST", "/graphql", respond: .json("graphql_pull_timeline"))
+    let details = try await server.client.threadDetails(for: Fixture.thread("101"), scopes: Self.scopes)
+    let mona = GitHubUser(login: "mona")
+    let date = { (string: String) in try Date(string, strategy: .iso8601) }
+    let event = { (id: String, actor: GitHubUser, kind: TimelineEvent.Kind, at: String) in
+      TimelineEntry.event(TimelineEvent(id: id, actor: actor, kind: kind, date: try date(at)))
+    }
+    #expect(details.timeline.map(\.id) == ["PURC_1", "PURC_4", "IC_1", "RRE_1", "RRE_3", "LE_1", "UNLE_1", "RTE_1", "CRE_1", "ME_1", "HRDE_1"])
+    #expect(details.timeline.prefix(2) == [
+      try event("PURC_1", mona, .committed([
+        CommitSummary(shortSHA: "a1bf3b9", headline: "Add the export fields", url: URL(string: "https://github.com/octo/app/commit/a1bf3b9")),
+        CommitSummary(shortSHA: "b2c4d6e", headline: "Resolve comparison fields"),
+        CommitSummary(shortSHA: "c3d5e7f", headline: "Cover the export in tests"),
+      ]), "2026-10-03T08:00:00Z"),
+      try event("PURC_4", GitHubUser(login: "Release Bot"), .committed([CommitSummary(shortSHA: "d4e6f8a", headline: "Bump the schema")]), "2026-10-03T09:00:00Z"),
+    ], "commits group in node order even when a commit date is older")
+    #expect(details.timeline.dropFirst(3) == [
+      try event("RRE_1", mona, .requestedReview(from: [GitHubUser(login: "lisa"), GitHubUser(login: "hubot")]), "2026-10-15T10:00:00Z"),
+      try event("RRE_3", mona, .requestedReview(from: [GitHubUser(login: "octocat")]), "2026-10-15T10:01:20Z"),
+      try event("LE_1", mona, .labeled(IssueLabel(name: "ui", color: "a2eeef")), "2026-10-15T11:00:00Z"),
+      try event("UNLE_1", mona, .unlabeled(IssueLabel(name: "wip", color: "ededed")), "2026-10-15T11:01:00Z"),
+      try event("RTE_1", mona, .renamed(from: "WIP export", to: "Export comparison fields"), "2026-10-15T11:02:00Z"),
+      try event("CRE_1", GitHubUser(login: "hubot"), .crossReferenced(CrossReference(
+        repository: "octo/web", number: 9, title: "Exports miss comparison fields", url: URL(string: "https://github.com/octo/web/issues/9"))),
+        "2026-10-15T12:00:00Z"),
+      try event("ME_1", mona, .merged(into: "main"), "2026-10-15T13:00:00Z"),
+      try event("HRDE_1", mona, .deletedBranch("mona/export"), "2026-10-15T13:00:00Z"),
+    ], "review requests group within a minute of the first; the empty commented review and the close paired with the merge are dropped")
+    #expect(details.totalComments == 2)
+    #expect(!details.hasOlderComments)
   }
 
   @Test func requestedUserAndTeamApprovedAndChangesRequested() async throws {
@@ -106,7 +142,7 @@ struct ThreadDetailsTests {
       {"data":{"repository":{"issueOrPullRequest":{"kind":"PullRequest","baseRefName":"main","headRefName":"f",
         "latestReviews":{"nodes":[{"state":"APPROVED","author":{"login":"octocat"}},null,{"state":7,"author":{"login":"bad"}}]},
         "reviewRequests":{"nodes":[{"requestedReviewer":null},{"requestedReviewer":{"login":"hubot"}}]},
-        "timelineItems":{"filteredCount":3,"nodes":[{"id":"IC_1","body":"hi","createdAt":"yesterday"},{"id":"IC_2","body":"ok","createdAt":"2026-10-15T09:00:00Z"}]}
+        "comments":{"filteredCount":3,"nodes":[{"type":"IssueComment","id":"IC_1","body":"hi","createdAt":"yesterday"},{"type":"IssueComment","id":"IC_2","body":"ok","createdAt":"2026-10-15T09:00:00Z"}]}
       }}},
       "errors":[{"type":"FORBIDDEN","path":["repository","issueOrPullRequest","reviewRequests","nodes",0,"requestedReviewer"],"message":"Resource not accessible"}]}
       """#
@@ -139,7 +175,7 @@ struct ThreadDetailsTests {
         {"kind":"Discussion","title":"How do I configure themes? (old)","body":"no","comments":{"totalCount":0,"nodes":[]}},
         {},
         {"kind":"Discussion","title":"How do I configure themes?","body":"yes","isAnswered":true,"category":{"name":"Q&A"},
-         "comments":{"totalCount":1,"nodes":[{"id":"DC_1","body":"Use Settings.","createdAt":"2026-10-15T09:00:00Z","isAnswer":true}]}}
+         "comments":{"totalCount":1,"nodes":[{"type":"DiscussionComment","id":"DC_1","body":"Use Settings.","createdAt":"2026-10-15T09:00:00Z","isAnswer":true}]}}
       ]}}}
       """#
     server.on("POST", "/graphql", respond: StubResponse(status: 200, body: Data(body.utf8)))
@@ -271,3 +307,9 @@ struct ThreadDetailsStoreTests {
     store.disconnect()
     #expect(store.threadDetails(for: item) == nil)
   }}
+
+extension ThreadDetails {
+  fileprivate var comments: [TimelineComment] {
+    timeline.compactMap { if case .comment(let comment) = $0 { comment } else { nil } }
+  }
+}

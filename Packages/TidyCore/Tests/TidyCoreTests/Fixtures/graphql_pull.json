@@ -36,11 +36,11 @@
           {"name": "deploy-preview", "status": "IN_PROGRESS", "conclusion": null},
           {"context": "ci/legacy", "state": "SUCCESS"}
         ]}}}}]},
-        "timelineItems": {"filteredCount": 14, "nodes": [
-          {"id": "IC_1", "author": {"login": "octocat", "avatarUrl": null}, "body": "Looks good, one nit.", "createdAt": "2026-10-15T09:00:00Z", "url": "https://github.com/octo/app/pull/42#issuecomment-1"},
-          {"id": "PRR_1", "author": {"login": "octocat", "avatarUrl": null}, "body": "", "createdAt": "2026-10-15T09:05:00Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-1", "state": "APPROVED"},
-          {"id": "PRR_2", "author": {"login": "lisa", "avatarUrl": null}, "body": "", "createdAt": "2026-10-15T09:10:00Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-2", "state": "COMMENTED"},
-          {"id": "PRR_3", "author": {"login": "hubot", "avatarUrl": null}, "body": "Please add tests.", "createdAt": "2026-10-15T10:00:00Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-3", "state": "CHANGES_REQUESTED"},
+        "comments": {"filteredCount": 14, "nodes": [
+          {"type": "IssueComment", "id": "IC_1", "author": {"login": "octocat", "avatarUrl": null}, "body": "Looks good, one nit.", "createdAt": "2026-10-15T09:00:00Z", "url": "https://github.com/octo/app/pull/42#issuecomment-1"},
+          {"type": "PullRequestReview", "id": "PRR_1", "author": {"login": "octocat", "avatarUrl": null}, "body": "", "createdAt": "2026-10-15T09:05:00Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-1", "state": "APPROVED"},
+          {"type": "PullRequestReview", "id": "PRR_2", "author": {"login": "lisa", "avatarUrl": null}, "body": "", "createdAt": "2026-10-15T09:10:00Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-2", "state": "COMMENTED"},
+          {"type": "PullRequestReview", "id": "PRR_3", "author": {"login": "hubot", "avatarUrl": null}, "body": "Please add tests.", "createdAt": "2026-10-15T10:00:00Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-3", "state": "CHANGES_REQUESTED"},
           {}
         ]}
       }

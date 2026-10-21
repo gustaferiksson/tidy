@@ -97,22 +97,18 @@ extension GitHubClient {
   }()
 }
 
-private struct Login: Decodable {
-  let login: String?
-}
-
 private struct ActivityData: Decodable {
   struct Subject: Decodable {
     let createdAt: Date?
-    let author: Login?
-    let timelineItems: Connection<TimelineItem>?
+    let author: ActorNode?
+    let timelineItems: Connection<TimelineNode>?
   }
 
   struct Repository: Decodable {
     let issueOrPullRequest: Subject?
   }
 
-  let viewer: Login?
+  let viewer: ActorNode?
   let repository: Repository?
 
   func activity(near updatedAt: Date) -> Activity? {
@@ -143,29 +139,7 @@ private struct ActivityData: Decodable {
   }
 }
 
-private struct TimelineItem: Decodable {
-  struct Commit: Decodable {
-    struct Author: Decodable {
-      let name: String?
-      let user: Login?
-    }
-
-    let committedDate: Date?
-    let messageHeadline: String?
-    let author: Author?
-  }
-
-  let type: String
-  let author: Login?
-  let actor: Login?
-  let body: String?
-  let createdAt: Date?
-  let url: URL?
-  let state: String?
-  let requestedReviewer: Login?
-  let assignee: Login?
-  let commit: Commit?
-
+extension TimelineNode {
   func activity(as display: (String) -> String) -> Activity? {
     guard let login = (actor ?? author)?.login else { return nil }
     let who = display(login)
@@ -173,7 +147,7 @@ private struct TimelineItem: Decodable {
       "MergedEvent": .merged, "ClosedEvent": .closed, "ReopenedEvent": .reopened, "HeadRefForcePushedEvent": .forcePushed,
       "ReadyForReviewEvent": .readyForReview,
     ]
-    if let kind = events[type] { return Activity(actor: who, kind: kind) }
+    if let kind = type.flatMap({ events[$0] }) { return Activity(actor: who, kind: kind) }
     if type == "IssueComment" { return Activity(actor: who, kind: .commented, detail: body, htmlURL: url) }
     if type == "ReviewRequestedEvent" { return Activity(actor: who, kind: .requestedReview(from: requestedReviewer?.login.map(display))) }
     if type == "AssignedEvent", let assignee = assignee?.login { return Activity(actor: who, kind: .assigned(to: display(assignee))) }
