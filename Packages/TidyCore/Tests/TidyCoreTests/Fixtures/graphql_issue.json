@@ -10,9 +10,9 @@
         "labels": {"nodes": [{"name": "bug", "color": "d73a4a"}]},
         "assignees": {"nodes": []},
         "milestone": null,
-        "comments": {"totalCount": 2, "nodes": [
-          {"id": "IC_7", "author": {"login": "octocat", "avatarUrl": null}, "body": "Can't reproduce.", "createdAt": "2026-10-11T08:00:00Z", "url": "https://github.com/octo/app/issues/7#issuecomment-7"},
-          {"id": "IC_8", "author": null, "body": "Same here.", "createdAt": "2026-10-12T08:00:00Z", "url": "https://github.com/octo/app/issues/7#issuecomment-8"}
+        "timelineItems": {"filteredCount": 2, "nodes": [
+          {"type": "IssueComment", "id": "IC_7", "author": {"login": "octocat", "avatarUrl": null}, "body": "Can't reproduce.", "createdAt": "2026-10-11T08:00:00Z", "url": "https://github.com/octo/app/issues/7#issuecomment-7"},
+          {"type": "IssueComment", "id": "IC_8", "author": null, "body": "Same here.", "createdAt": "2026-10-12T08:00:00Z", "url": "https://github.com/octo/app/issues/7#issuecomment-8"}
         ]}
       }
     }

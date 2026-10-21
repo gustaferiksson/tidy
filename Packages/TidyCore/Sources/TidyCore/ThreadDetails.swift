@@ -8,8 +8,9 @@ public struct ThreadDetails: Hashable, Sendable {
   public var labels: [IssueLabel]
   public var assignees: [GitHubUser]
   public var milestone: String?
-  public var comments: [TimelineComment]
-  public var totalComments: Int
+  public var timeline: [TimelineEntry]
+  public var totalTimelineItems: Int
+  public var hasOlderTimelineItems: Bool
   public var pullRequest: PullRequestDetails?
   public var discussion: DiscussionDetails?
 
@@ -21,8 +22,9 @@ public struct ThreadDetails: Hashable, Sendable {
     labels: [IssueLabel] = [],
     assignees: [GitHubUser] = [],
     milestone: String? = nil,
-    comments: [TimelineComment] = [],
-    totalComments: Int = 0,
+    timeline: [TimelineEntry] = [],
+    totalTimelineItems: Int = 0,
+    hasOlderTimelineItems: Bool = false,
     pullRequest: PullRequestDetails? = nil,
     discussion: DiscussionDetails? = nil
   ) {
@@ -33,8 +35,9 @@ public struct ThreadDetails: Hashable, Sendable {
     self.labels = labels
     self.assignees = assignees
     self.milestone = milestone
-    self.comments = comments
-    self.totalComments = totalComments
+    self.timeline = timeline
+    self.totalTimelineItems = totalTimelineItems
+    self.hasOlderTimelineItems = hasOlderTimelineItems
     self.pullRequest = pullRequest
     self.discussion = discussion
   }
@@ -193,6 +196,84 @@ public struct TimelineComment: Hashable, Sendable, Identifiable {
   }
 }
 
+public enum TimelineEntry: Hashable, Sendable, Identifiable {
+  case comment(TimelineComment)
+  case event(TimelineEvent)
+
+  public var id: String {
+    switch self {
+    case .comment(let comment): comment.id
+    case .event(let event): event.id
+    }
+  }
+}
+
+public struct TimelineEvent: Hashable, Sendable, Identifiable {
+  public enum Kind: Hashable, Sendable {
+    case committed([CommitSummary])
+    case forcePushed(branch: String?)
+    case deletedBranch(String?)
+    case requestedReview(from: [GitHubUser])
+    case removedReviewRequest(from: GitHubUser?)
+    case merged(into: String?)
+    case closed, reopened, readyForReview, convertedToDraft
+    case labeled(IssueLabel)
+    case unlabeled(IssueLabel)
+    case assigned(GitHubUser)
+    case unassigned(GitHubUser)
+    case renamed(from: String, to: String)
+    case crossReferenced(CrossReference)
+  }
+
+  public var id: String
+  public var actor: GitHubUser?
+  public var kind: Kind
+  public var date: Date
+
+  public init(id: String, actor: GitHubUser?, kind: Kind, date: Date) {
+    self.id = id
+    self.actor = actor
+    self.kind = kind
+    self.date = date
+  }
+
+  func absorbing(_ next: TimelineEvent) -> TimelineEvent? {
+    guard next.actor?.login == actor?.login else { return nil }
+    if case .committed(let commits) = kind, case .committed(let more) = next.kind {
+      return TimelineEvent(id: id, actor: actor, kind: .committed(commits + more), date: next.date)
+    }
+    guard case .requestedReview(let reviewers) = kind, case .requestedReview(let more) = next.kind, next.date.timeIntervalSince(date) < 60
+    else { return nil }
+    return TimelineEvent(id: id, actor: actor, kind: .requestedReview(from: reviewers + more), date: next.date)
+  }
+}
+
+public struct CommitSummary: Hashable, Sendable {
+  public var shortSHA: String
+  public var headline: String
+  public var url: URL?
+
+  public init(shortSHA: String, headline: String, url: URL? = nil) {
+    self.shortSHA = shortSHA
+    self.headline = headline
+    self.url = url
+  }
+}
+
+public struct CrossReference: Hashable, Sendable {
+  public var repository: String
+  public var number: Int
+  public var title: String
+  public var url: URL?
+
+  public init(repository: String, number: Int, title: String, url: URL? = nil) {
+    self.repository = repository
+    self.number = number
+    self.title = title
+    self.url = url
+  }
+}
+
 public enum ThreadDetailsStatus: Hashable, Sendable {
   case loading
   case loaded(ThreadDetails)
@@ -226,41 +307,69 @@ extension GitHubClient {
     }
   }
 
+  static let conversationLimit = 50
+
   static func issueOrPullRequestQuery(teamReviewer: String) -> String {
-    """
-    query($owner: String!, $name: String!, $number: Int!) {
-      repository(owner: $owner, name: $name) {
-        issueOrPullRequest(number: $number) {
-          kind: __typename
-          ... on Issue {
-            author { ...Who } createdAt url body
-            labels(first: 20) { nodes { name color } }
-            assignees(first: 10) { nodes { ...Who } }
-            milestone { title }
-            comments(last: 10) { totalCount nodes { id author { ...Who } body createdAt url } }
-          }
-          ... on PullRequest {
-            author { ...Who } createdAt url body
-            labels(first: 20) { nodes { name color } }
-            assignees(first: 10) { nodes { ...Who } }
-            milestone { title }
-            baseRefName headRefName additions deletions changedFiles mergeable reviewDecision
-            latestReviews(first: 20) { nodes { state author { ...Who } } }
-            reviewRequests(first: 20) { nodes { requestedReviewer { ...Who \(teamReviewer) } } }
-            commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes {
-              ... on CheckRun { name status conclusion }
-              ... on StatusContext { context state }
-            } } } } } }
-            timelineItems(last: 10, itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW]) { filteredCount nodes {
-              ... on IssueComment { id author { ...Who } body createdAt url }
-              ... on PullRequestReview { id author { ...Who } body createdAt url state }
-            } }
+    let shared = """
+      type: __typename
+      ... on IssueComment { id author { ...Who } body createdAt url }
+      ... on ClosedEvent { id actor { ...Who } createdAt }
+      ... on ReopenedEvent { id actor { ...Who } createdAt }
+      ... on LabeledEvent { id actor { ...Who } createdAt label { name color } }
+      ... on UnlabeledEvent { id actor { ...Who } createdAt label { name color } }
+      ... on AssignedEvent { id actor { ...Who } createdAt assignee { ...Who } }
+      ... on UnassignedEvent { id actor { ...Who } createdAt assignee { ...Who } }
+      ... on RenamedTitleEvent { id actor { ...Who } createdAt previousTitle currentTitle }
+      ... on CrossReferencedEvent { id actor { ...Who } createdAt source { ...Reference } }
+      """
+    return """
+      query($owner: String!, $name: String!, $number: Int!) {
+        repository(owner: $owner, name: $name) {
+          issueOrPullRequest(number: $number) {
+            kind: __typename
+            ... on Issue {
+              author { ...Who } createdAt url body
+              labels(first: 20) { nodes { name color } }
+              assignees(first: 10) { nodes { ...Who } }
+              milestone { title }
+              timelineItems(last: \(conversationLimit), itemTypes: [ISSUE_COMMENT, CLOSED_EVENT, REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT, ASSIGNED_EVENT, UNASSIGNED_EVENT, RENAMED_TITLE_EVENT, CROSS_REFERENCED_EVENT]) { filteredCount nodes {
+                \(shared)
+              } }
+            }
+            ... on PullRequest {
+              author { ...Who } createdAt url body
+              labels(first: 20) { nodes { name color } }
+              assignees(first: 10) { nodes { ...Who } }
+              milestone { title }
+              baseRefName headRefName additions deletions changedFiles mergeable reviewDecision
+              latestReviews(first: 20) { nodes { state author { ...Who } } }
+              reviewRequests(first: 20) { nodes { requestedReviewer { ...Who \(teamReviewer) } } }
+              commits(last: 1) { nodes { commit { statusCheckRollup { state contexts(first: 100) { nodes {
+                ... on CheckRun { name status conclusion }
+                ... on StatusContext { context state }
+              } } } } } }
+              timelineItems(last: \(conversationLimit), itemTypes: [PULL_REQUEST_COMMIT, ISSUE_COMMENT, PULL_REQUEST_REVIEW, REVIEW_REQUESTED_EVENT, REVIEW_REQUEST_REMOVED_EVENT, MERGED_EVENT, CLOSED_EVENT, REOPENED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT, HEAD_REF_DELETED_EVENT, READY_FOR_REVIEW_EVENT, CONVERT_TO_DRAFT_EVENT, LABELED_EVENT, UNLABELED_EVENT, ASSIGNED_EVENT, UNASSIGNED_EVENT, RENAMED_TITLE_EVENT, CROSS_REFERENCED_EVENT]) { filteredCount nodes {
+                \(shared)
+                ... on PullRequestCommit { id commit { abbreviatedOid messageHeadline committedDate url author { name user { ...Who } } } }
+                ... on PullRequestReview { id author { ...Who } body createdAt url state }
+                ... on ReviewRequestedEvent { id actor { ...Who } createdAt requestedReviewer { ...Who \(teamReviewer) } }
+                ... on ReviewRequestRemovedEvent { id actor { ...Who } createdAt requestedReviewer { ...Who \(teamReviewer) } }
+                ... on MergedEvent { id actor { ...Who } createdAt mergeRefName }
+                ... on HeadRefForcePushedEvent { id actor { ...Who } createdAt ref { name } }
+                ... on HeadRefDeletedEvent { id actor { ...Who } createdAt headRefName }
+                ... on ReadyForReviewEvent { id actor { ...Who } createdAt }
+                ... on ConvertToDraftEvent { id actor { ...Who } createdAt }
+              } }
+            }
           }
         }
       }
-    }
-    fragment Who on Actor { login avatarUrl(size: 40) }
-    """
+      fragment Who on Actor { login avatarUrl(size: 40) }
+      fragment Reference on ReferencedSubject {
+        ... on Issue { number title url repository { nameWithOwner } }
+        ... on PullRequest { number title url repository { nameWithOwner } }
+      }
+      """
   }
 
   static let discussionQuery = """
@@ -307,16 +416,19 @@ struct Connection<Node: Decodable>: Decodable {
   }
 
   let totalCount: Int?
+  let fetchedCount: Int
   let items: [Node]
 
   init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     totalCount = try container.decodeIfPresent(Int.self, forKey: .filteredCount) ?? container.decodeIfPresent(Int.self, forKey: .totalCount)
-    items = (try? container.decodeIfPresent([Lossy].self, forKey: .nodes))?.compactMap(\.node) ?? []
+    let nodes = (try? container.decodeIfPresent([Lossy].self, forKey: .nodes)) ?? []
+    fetchedCount = nodes.count
+    items = nodes.compactMap(\.node)
   }
 }
 
-private struct ActorNode: Decodable {
+struct ActorNode: Decodable {
   let login: String?
   let slug: String?
   let avatarUrl: URL?
@@ -324,12 +436,122 @@ private struct ActorNode: Decodable {
   var user: GitHubUser? { (login ?? slug).map { GitHubUser(login: $0, avatarURL: avatarUrl) } }
 }
 
-private struct SubjectNode: Decodable {
-  struct Label: Decodable {
-    let name: String
-    let color: String?
+struct LabelNode: Decodable {
+  let name: String
+  let color: String?
+
+  var label: IssueLabel { IssueLabel(name: name, color: color ?? "ededed") }
+}
+
+struct TimelineNode: Decodable {
+  struct Commit: Decodable {
+    struct Author: Decodable {
+      let name: String?
+      let user: ActorNode?
+    }
+
+    let abbreviatedOid: String?
+    let messageHeadline: String?
+    let committedDate: Date?
+    let url: URL?
+    let author: Author?
   }
 
+  struct Ref: Decodable {
+    let name: String?
+  }
+
+  struct Source: Decodable {
+    struct Repository: Decodable {
+      let nameWithOwner: String
+    }
+
+    let number: Int?
+    let title: String?
+    let url: URL?
+    let repository: Repository?
+  }
+
+  let type: String?
+  let id: String?
+  let author: ActorNode?
+  let actor: ActorNode?
+  let body: String?
+  let createdAt: Date?
+  let url: URL?
+  let state: String?
+  let isAnswer: Bool?
+  let requestedReviewer: ActorNode?
+  let assignee: ActorNode?
+  let commit: Commit?
+  let label: LabelNode?
+  let mergeRefName: String?
+  let headRefName: String?
+  let ref: Ref?
+  let previousTitle: String?
+  let currentTitle: String?
+  let source: Source?
+
+  var entry: TimelineEntry? {
+    guard let id else { return nil }
+    if type == nil || type == "IssueComment" || type == "PullRequestReview" {
+      guard let createdAt, state != "COMMENTED" || !(body ?? "").isEmpty else { return nil }
+      return .comment(TimelineComment(
+        id: id, author: author?.user, body: body ?? "", createdAt: createdAt, url: url,
+        review: ReviewState(apiValue: state), isAnswer: isAnswer ?? false))
+    }
+    let committer = commit?.author.flatMap { $0.user?.user ?? $0.name.map { GitHubUser(login: $0) } }
+    guard let kind = eventKind, let date = createdAt ?? commit?.committedDate else { return nil }
+    return .event(TimelineEvent(id: id, actor: actor?.user ?? committer, kind: kind, date: date))
+  }
+
+  private var eventKind: TimelineEvent.Kind? {
+    switch type {
+    case "PullRequestCommit":
+      guard let sha = commit?.abbreviatedOid else { return nil }
+      return .committed([CommitSummary(shortSHA: String(sha.prefix(7)), headline: commit?.messageHeadline ?? "", url: commit?.url)])
+    case "HeadRefForcePushedEvent": return .forcePushed(branch: ref?.name)
+    case "HeadRefDeletedEvent": return .deletedBranch(headRefName)
+    case "ReviewRequestedEvent": return .requestedReview(from: requestedReviewer?.user.map { [$0] } ?? [])
+    case "ReviewRequestRemovedEvent": return .removedReviewRequest(from: requestedReviewer?.user)
+    case "MergedEvent": return .merged(into: mergeRefName)
+    case "ClosedEvent": return .closed
+    case "ReopenedEvent": return .reopened
+    case "ReadyForReviewEvent": return .readyForReview
+    case "ConvertToDraftEvent": return .convertedToDraft
+    case "LabeledEvent": return label.map { .labeled($0.label) }
+    case "UnlabeledEvent": return label.map { .unlabeled($0.label) }
+    case "AssignedEvent": return assignee?.user.map { .assigned($0) }
+    case "UnassignedEvent": return assignee?.user.map { .unassigned($0) }
+    case "RenamedTitleEvent":
+      guard let previousTitle, let currentTitle else { return nil }
+      return .renamed(from: previousTitle, to: currentTitle)
+    case "CrossReferencedEvent":
+      guard let repository = source?.repository?.nameWithOwner, let number = source?.number else { return nil }
+      return .crossReferenced(CrossReference(repository: repository, number: number, title: source?.title ?? "", url: source?.url))
+    default: return nil
+    }
+  }
+
+  static func timeline(of nodes: [TimelineNode]) -> [TimelineEntry] {
+    var entries: [TimelineEntry] = []
+    for entry in nodes.compactMap(\.entry) {
+      guard case .event(let event) = entry, case .event(let previous)? = entries.last else {
+        entries.append(entry)
+        continue
+      }
+      if case .merged = previous.kind, event.kind == .closed { continue }
+      if let combined = previous.absorbing(event) {
+        entries[entries.count - 1] = .event(combined)
+      } else {
+        entries.append(entry)
+      }
+    }
+    return entries
+  }
+}
+
+private struct SubjectNode: Decodable {
   struct Title: Decodable {
     let title: String?
     let name: String?
@@ -365,27 +587,17 @@ private struct SubjectNode: Decodable {
     let state: String?
   }
 
-  struct CommentNode: Decodable {
-    let id: String?
-    let author: ActorNode?
-    let body: String?
-    let createdAt: Date?
-    let url: URL?
-    let state: String?
-    let isAnswer: Bool?
-  }
-
   let kind: String?
   let title: String?
   let author: ActorNode?
   let createdAt: Date?
   let url: URL?
   let body: String?
-  let labels: Connection<Label>?
+  let labels: Connection<LabelNode>?
   let assignees: Connection<ActorNode>?
   let milestone: Title?
-  let comments: Connection<CommentNode>?
-  let timelineItems: Connection<CommentNode>?
+  let comments: Connection<TimelineNode>?
+  let timelineItems: Connection<TimelineNode>?
   let baseRefName: String?
   let headRefName: String?
   let additions: Int?
@@ -402,23 +614,18 @@ private struct SubjectNode: Decodable {
   var details: ThreadDetails? {
     guard kind != nil else { return nil }
     let conversation = timelineItems ?? comments
-    let timeline = conversation?.items.compactMap { node -> TimelineComment? in
-      guard let id = node.id, let createdAt = node.createdAt else { return nil }
-      guard node.state != "COMMENTED" || !(node.body ?? "").isEmpty else { return nil }
-      return TimelineComment(
-        id: id, author: node.author?.user, body: node.body ?? "", createdAt: createdAt, url: node.url,
-        review: ReviewState(apiValue: node.state), isAnswer: node.isAnswer ?? false)
-    }
+    let fetched = conversation?.fetchedCount ?? 0
     return ThreadDetails(
       author: author?.user,
       createdAt: createdAt,
       url: url,
       body: body ?? "",
-      labels: labels?.items.map { IssueLabel(name: $0.name, color: $0.color ?? "ededed") } ?? [],
+      labels: labels?.items.map(\.label) ?? [],
       assignees: assignees?.items.compactMap(\.user) ?? [],
       milestone: milestone?.title,
-      comments: timeline ?? [],
-      totalComments: conversation?.totalCount ?? timeline?.count ?? 0,
+      timeline: TimelineNode.timeline(of: conversation?.items ?? []),
+      totalTimelineItems: conversation?.totalCount ?? fetched,
+      hasOlderTimelineItems: (conversation?.totalCount ?? 0) > fetched,
       pullRequest: kind == "PullRequest" ? pullRequest : nil,
       discussion: kind == "Discussion" ? DiscussionDetails(category: category?.name, isAnswered: isAnswered ?? false) : nil
     )

@@ -11,7 +11,7 @@ struct ThreadDetailsView: View {
             VStack(alignment: .leading, spacing: 20) {
                 status(of: details)
                 DescriptionSection(details: details)
-                if !details.comments.isEmpty {
+                if !details.timeline.isEmpty {
                     Divider()
                     ConversationSection(details: details)
                 }
@@ -52,13 +52,14 @@ struct ThreadDetailsView: View {
             if let pull {
                 GridRow {
                     SectionLabel(title: "Branch")
-                    VStack(alignment: .leading, spacing: 4) {
-                        HStack(spacing: 4) {
-                            Text(pull.baseBranch)
-                            Image(systemName: "arrow.left").imageScale(.small).foregroundStyle(.secondary)
-                            Text(pull.headBranch).lineLimit(1).truncationMode(.middle)
+                    VStack(alignment: .leading, spacing: 6) {
+                        FlowLayout(spacing: 4) {
+                            branchChip(pull.baseBranch)
+                            HStack(spacing: 4) {
+                                Image(systemName: "arrow.left").imageScale(.small).foregroundStyle(.secondary)
+                                branchChip(pull.headBranch)
+                            }
                         }
-                        .font(.system(.subheadline, design: .monospaced))
                         HStack(spacing: 4) {
                             Text("+\(pull.additions)").foregroundStyle(StateGlyphView.color(for: .green, scheme: scheme, contrast: contrast))
                             Text("−\(pull.deletions)").foregroundStyle(StateGlyphView.color(for: .red, scheme: scheme, contrast: contrast))
@@ -139,6 +140,18 @@ struct ThreadDetailsView: View {
         }
     }
 
+    private func branchChip(_ name: String) -> some View {
+        Text(name)
+            .font(.system(.caption, design: .monospaced))
+            .lineLimit(1)
+            .truncationMode(.middle)
+            .foregroundStyle(.tint)
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(.tint.opacity(0.12), in: .rect(cornerRadius: 6))
+            .help(name)
+    }
+
     private func checksLine(_ checks: CheckSummary) -> some View {
         let (octicon, tone): (Octicon, StateTone) =
             switch checks.state {
@@ -192,19 +205,24 @@ private struct ConversationSection: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Conversation").font(.headline)
                 Spacer()
-                if details.totalComments > details.comments.count, let url = details.url {
-                    Link("View all \(details.totalComments) on GitHub", destination: url)
+                if details.hasOlderTimelineItems, let url = details.url {
+                    Link("View all \(details.totalTimelineItems) on GitHub", destination: url)
                         .font(.subheadline)
                 }
             }
-            ForEach(details.comments) { comment in
-                if comment.body.isEmpty, let review = comment.review {
-                    reviewEvent(comment, review: review)
-                } else {
-                    VStack(alignment: .leading, spacing: 8) {
-                        CommentHeader(author: comment.author, action: comment.review.map(Self.verb(for:)) ?? "commented", date: comment.createdAt, url: comment.url, isAnswer: comment.isAnswer)
-                        MarkdownView(source: comment.body)
-                            .padding(.leading, 28)
+            ForEach(details.timeline) { entry in
+                switch entry {
+                case .event(let event):
+                    TimelineEventRow(event: event, isPullRequest: details.pullRequest != nil)
+                case .comment(let comment):
+                    if comment.body.isEmpty, let review = comment.review {
+                        reviewEvent(comment, review: review)
+                    } else {
+                        VStack(alignment: .leading, spacing: 8) {
+                            CommentHeader(author: comment.author, action: comment.review.map(Self.verb(for:)) ?? "commented", date: comment.createdAt, url: comment.url, isAnswer: comment.isAnswer)
+                            MarkdownView(source: comment.body)
+                                .padding(.leading, 28)
+                        }
                     }
                 }
             }
@@ -233,11 +251,115 @@ private struct ConversationSection: View {
     }
 }
 
+private struct TimelineEventRow: View {
+    let event: TimelineEvent
+    let isPullRequest: Bool
+    @Environment(\.colorScheme) private var scheme
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        let (icon, tone) = appearance
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(spacing: 8) {
+                icon
+                    .font(.system(size: 12))
+                    .foregroundStyle(StateGlyphView.color(for: tone, scheme: scheme, contrast: contrast))
+                    .frame(width: 20)
+                CommentHeader(author: event.actor, action: verb, date: event.date, label: label, showsAvatar: false)
+            }
+            detail
+                .font(.subheadline)
+                .padding(.leading, 28)
+        }
+    }
+
+    private var label: IssueLabel? {
+        switch event.kind {
+        case .labeled(let label), .unlabeled(let label): label
+        default: nil
+        }
+    }
+
+    private var verb: String {
+        let actor = event.actor?.login
+        switch event.kind {
+        case .committed(let commits): return commits.count == 1 ? "added a commit" : "added \(commits.count) commits"
+        case .forcePushed(let branch): return branch.map { "force-pushed the \($0) branch" } ?? "force-pushed"
+        case .deletedBranch(let branch): return branch.map { "deleted the \($0) branch" } ?? "deleted the branch"
+        case .requestedReview(let reviewers) where reviewers.count == 1 && reviewers.first?.login == actor: return "self-requested a review"
+        case .requestedReview(let reviewers) where reviewers.isEmpty: return "requested a review"
+        case .requestedReview(let reviewers): return "requested a review from \(reviewers.map(\.login).formatted(.list(type: .and)))"
+        case .removedReviewRequest(let reviewer): return reviewer.map { "removed the review request for \($0.login)" } ?? "removed a review request"
+        case .merged(let branch): return branch.map { "merged into \($0)" } ?? "merged this"
+        case .closed: return "closed this"
+        case .reopened: return "reopened this"
+        case .readyForReview: return "marked this ready for review"
+        case .convertedToDraft: return "converted this to a draft"
+        case .labeled: return "added"
+        case .unlabeled: return "removed"
+        case .assigned(let user): return user.login == actor ? "self-assigned this" : "assigned \(user.login)"
+        case .unassigned(let user): return user.login == actor ? "removed their assignment" : "unassigned \(user.login)"
+        case .renamed: return "changed the title"
+        case .crossReferenced: return "mentioned this"
+        }
+    }
+
+    private var appearance: (Image, StateTone) {
+        switch event.kind {
+        case .committed: (Image(Octicon.gitCommit.rawValue), .grey)
+        case .forcePushed: (Image(systemName: "arrow.triangle.branch"), .grey)
+        case .deletedBranch: (Image(systemName: "trash"), .grey)
+        case .requestedReview: (Image(systemName: "eye"), .grey)
+        case .removedReviewRequest: (Image(systemName: "eye.slash"), .grey)
+        case .merged: (Image(Octicon.gitMerge.rawValue), .purple)
+        case .closed: isPullRequest ? (Image(Octicon.gitPullRequestClosed.rawValue), .red) : (Image(Octicon.issueClosed.rawValue), .purple)
+        case .reopened: (Image((isPullRequest ? Octicon.gitPullRequest : .issueOpened).rawValue), .green)
+        case .readyForReview: (Image(Octicon.gitPullRequest.rawValue), .green)
+        case .convertedToDraft: (Image(Octicon.gitPullRequestDraft.rawValue), .grey)
+        case .labeled, .unlabeled: (Image(Octicon.tag.rawValue), .grey)
+        case .assigned: (Image(Octicon.personAdd.rawValue), .grey)
+        case .unassigned: (Image(systemName: "person.badge.minus"), .grey)
+        case .renamed: (Image(systemName: "pencil"), .grey)
+        case .crossReferenced: (Image(systemName: "link"), .grey)
+        }
+    }
+
+    @ViewBuilder private var detail: some View {
+        switch event.kind {
+        case .committed(let commits):
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(commits, id: \.self) { commit in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text(commit.shortSHA)
+                            .font(.system(.caption, design: .monospaced))
+                            .foregroundStyle(.secondary)
+                        Text(commit.headline).lineLimit(1)
+                    }
+                }
+            }
+        case .renamed(let old, let new):
+            Text("\(Text(old).strikethrough().foregroundStyle(.secondary)) \(Text(Image(systemName: "arrow.right")).foregroundStyle(.secondary)) \(new)")
+                .fixedSize(horizontal: false, vertical: true)
+        case .crossReferenced(let reference):
+            let text = Text("\(Text("\(reference.repository)#\(reference.number)").foregroundStyle(.secondary)) \(reference.title)")
+            if let url = reference.url, url.isGitHubWeb {
+                Link(destination: url) { text.multilineTextAlignment(.leading) }
+                    .buttonStyle(.plain)
+            } else {
+                text
+            }
+        default:
+            EmptyView()
+        }
+    }
+}
+
 private struct CommentHeader: View {
     let author: GitHubUser?
     let action: String
     let date: Date?
     var url: URL? = nil
+    var label: IssueLabel? = nil
     var showsAvatar = true
     var isAnswer = false
 
@@ -245,11 +367,12 @@ private struct CommentHeader: View {
         HStack(spacing: 8) {
             if showsAvatar { AvatarView(user: author, size: 20) }
             HStack(spacing: 4) {
-                Text(author?.login ?? "ghost").fontWeight(.semibold)
-                Text(action).foregroundStyle(.secondary)
+                Text(author?.login ?? "ghost").fontWeight(.semibold).layoutPriority(1)
+                Text(action).foregroundStyle(.secondary).truncationMode(.middle)
+                if let label { LabelCapsule(label: label).layoutPriority(1) }
                 if let date {
-                    Text("·").foregroundStyle(.secondary)
-                    timestamp(date)
+                    Text("·").foregroundStyle(.secondary).layoutPriority(1)
+                    timestamp(date).layoutPriority(1)
                 }
             }
             .lineLimit(1)

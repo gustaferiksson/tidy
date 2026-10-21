@@ -47,6 +47,7 @@ enum InboxSnapshot {
             ("hoverselected", populated, nil, "2"),
             ("quicklook", populated, "1", nil),
             ("quicklookissue", populated, "2", nil),
+            ("quicklookdraft", populated, "5", nil),
             ("security", populated, "3", nil),
             ("filtered", filtered, nil, "2"),
             ("empty", empty, nil, nil),
@@ -238,7 +239,15 @@ private enum FixtureData {
         let minutes = { (ago: Double) in Date.now.addingTimeInterval(-ago * 60).formatted(.iso8601) }
         let who = { (login: String) -> [String: Any] in ["login": login] }
         let comment = { (id: String, login: String, body: String, ago: Double, state: String?) -> [String: Any] in
-            ["id": id, "author": who(login), "body": body, "createdAt": minutes(ago), "url": "https://github.com/tinecli/tidy/pull/42#\(id)", "state": state ?? NSNull()]
+            ["type": state == nil ? "IssueComment" : "PullRequestReview", "id": id, "author": who(login), "body": body, "createdAt": minutes(ago),
+             "url": "https://github.com/tinecli/tidy/pull/42#\(id)", "state": state ?? NSNull()]
+        }
+        let event = { (type: String, login: String, ago: Double, fields: [String: Any]) -> [String: Any] in
+            ["type": type, "id": "\(type)-\(ago)", "actor": who(login), "createdAt": minutes(ago)].merging(fields) { $1 }
+        }
+        let commit = { (sha: String, login: String, headline: String, ago: Double) -> [String: Any] in
+            ["type": "PullRequestCommit", "id": "commit-\(sha)",
+             "commit": ["abbreviatedOid": sha, "messageHeadline": headline, "committedDate": minutes(ago), "author": ["name": login, "user": who(login)]]]
         }
         let node: [String: Any]
         if number == 42 {
@@ -259,11 +268,22 @@ private enum FixtureData {
                     ["name": "lint", "status": "COMPLETED", "conclusion": "FAILURE"],
                     ["name": "ui-tests", "status": "IN_PROGRESS"],
                 ]]]]]]],
-                "timelineItems": ["totalCount": 7, "nodes": [
+                "timelineItems": ["filteredCount": 64, "nodes": [
+                    commit("8c1e4b2", "mira", "Move the panel onto the system glass", 2_880),
+                    commit("5d0a7f3", "mira", "Keep row hover and selection on glass", 2_870),
+                    commit("e93b6c1", "mira", "Drop the custom blur view", 2_860),
+                    event("ReviewRequestedEvent", "mira", 2_850, ["requestedReviewer": who("sam")]),
+                    event("ReviewRequestedEvent", "mira", 2_850, ["requestedReviewer": who("jonas")]),
+                    event("LabeledEvent", "mira", 2_840, ["label": ["name": "design", "color": "d4c5f9"]]),
                     comment("issuecomment-11", "mira", "Ready for another look. Screenshots are in the description.", 240, nil),
                     comment("pullrequestreview-12", "sam", "", 180, "APPROVED"),
+                    event("CrossReferencedEvent", "sam", 120, ["source": [
+                        "number": 57, "title": "Crash when the token is revoked while a poll is in flight",
+                        "url": "https://github.com/tinecli/tidy/issues/57", "repository": ["nameWithOwner": "tinecli/tidy"]]]),
                     comment("pullrequestreview-13", "jonas", pullComment, 30, "COMMENTED"),
+                    commit("3f2a1c0", "mira", "Fix the swift-format lint failure", 6),
                     comment("issuecomment-14", "mira", "Good catch, no confirmation: Done can be undone for 5 seconds. Fixed the lint failure in `3f2a1c0`.", 4, nil),
+                    event("ReviewRequestedEvent", "mira", 4, ["requestedReviewer": who("gustaf")]),
                 ]],
             ]
         } else if number == 57 {
@@ -273,9 +293,33 @@ private enum FixtureData {
                 "labels": ["nodes": [["name": "bug", "color": "d73a4a"], ["name": "crash", "color": "b60205"]]],
                 "assignees": ["nodes": [who("gustaf")]],
                 "milestone": ["title": "0.3"],
-                "comments": ["totalCount": 2, "nodes": [
+                "timelineItems": ["filteredCount": 6, "nodes": [
+                    event("LabeledEvent", "sam", 399, ["label": ["name": "bug", "color": "d73a4a"]]),
                     comment("issuecomment-21", "jonas", "Reproduced on main. The poll task keeps the old client alive.", 60, nil),
+                    event("LabeledEvent", "jonas", 59, ["label": ["name": "crash", "color": "b60205"]]),
+                    event("AssignedEvent", "gustaf", 30, ["assignee": who("gustaf")]),
                     comment("issuecomment-22", "sam", "@gustaf can you take a look?", 18, nil),
+                ]],
+            ]
+        } else if number == 318 {
+            node = [
+                "kind": "PullRequest", "author": who("gustaf"), "createdAt": minutes(900), "url": "https://github.com/acme/web/pull/318",
+                "body": "Work in progress.",
+                "labels": ["nodes": [["name": "keyboard", "color": "fbca04"]]],
+                "assignees": ["nodes": []],
+                "baseRefName": "feat/export-comparison-fields", "headRefName": "refactoring/some_long_template_name",
+                "additions": 412, "deletions": 37, "changedFiles": 1, "mergeable": "MERGEABLE",
+                "latestReviews": ["nodes": []],
+                "reviewRequests": ["nodes": []],
+                "commits": ["nodes": []],
+                "timelineItems": ["filteredCount": 7, "nodes": [
+                    commit("71ab0c9", "gustaf", "Step between threads with the arrow keys", 880),
+                    event("RenamedTitleEvent", "gustaf", 600, ["previousTitle": "Keyboard stepping", "currentTitle": "Draft: Keyboard stepping between threads in Quick Look"]),
+                    event("ConvertToDraftEvent", "gustaf", 590, [:]),
+                    event("UnlabeledEvent", "gustaf", 580, ["label": ["name": "ready", "color": "0e8a16"]]),
+                    event("HeadRefForcePushedEvent", "gustaf", 200, ["ref": ["name": "refactoring/some_long_template_name"]]),
+                    commit("c40f2d8", "gustaf", "Wrap at the ends of the list instead of stopping", 190),
+                    event("HeadRefDeletedEvent", "sam", 170, ["headRefName": "gustaf/old-stepping"]),
                 ]],
             ]
         } else {
