@@ -616,7 +616,7 @@ struct InboxStoreTests {
     store.muteThread("101")
     #expect(!store.inbox.contains { $0.id == "101" })
     await store.flushPending()
-    #expect(server.requests.filter { $0.method != "GET" }.map { "\($0.method) \($0.path)" } == [
+    #expect(server.requests.filter { $0.method != "GET" && $0.path != "/graphql" }.map { "\($0.method) \($0.path)" } == [
       "PUT /notifications/threads/101/subscription", "DELETE /notifications/threads/101",
     ])
     #expect(store.muted.map(\.id) == ["101"])

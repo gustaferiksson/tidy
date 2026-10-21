@@ -63,12 +63,12 @@ final class Banners: NSObject {
         let repository = item.thread.repository.fullName
         content.title = item.title
         content.subtitle = "\(repository) · \(item.thread.reason.title)"
-        if let comment = item.details?.latestComment, let review = comment.review {
-            let action = "\(review.title) by \(comment.author?.login ?? "a reviewer")"
-            let note = MarkdownView.plainFirstLine(of: comment.body)
-            content.body = note.isEmpty ? action : "\(action): \(note)"
+        if let activity = item.activity {
+            let note = MarkdownView.plainFirstLine(of: activity.detail ?? "")
+            content.body = note.isEmpty ? activity.headline : "\(activity.headline): \(note)"
         } else {
-            content.body = item.previewMarkdown.map(MarkdownView.plainFirstLine) ?? ""
+            let alerts = item.details?.alerts ?? []
+            content.body = (alerts.first { $0.severity == item.severity } ?? alerts.first)?.summary ?? ""
         }
         content.threadIdentifier = repository
         content.categoryIdentifier = Self.threadCategory

@@ -20,6 +20,7 @@ extension GitHubClient {
     guard let subjectURL = thread.subject.url else {
       return SubjectDetails(state: kind == .discussion ? .open : nil)
     }
+    async let activity = recentActivity(for: thread)
     let payload = try await get(SubjectPayload.self, from: subjectURL)
     let commentURL = thread.subject.latestCommentURL.flatMap { $0 == subjectURL ? nil : $0 }
     let comment: Comment? =
@@ -27,34 +28,18 @@ extension GitHubClient {
         previous?.latestComment
       } else if let commentURL {
         try? await get(CommentPayload.self, from: commentURL).comment(apiURL: commentURL)
-      } else if kind == .pullRequest {
-        try? await latestReview(on: subjectURL, near: thread.updatedAt)
       } else {
         nil
       }
+    let recent = await activity
     return SubjectDetails(
       state: payload.state(for: kind),
       author: payload.user ?? payload.author,
       body: payload.body ?? payload.commit?.message,
       htmlURL: payload.htmlURL,
-      latestComment: comment
+      latestComment: comment,
+      activity: kind == .release ? payload.author.map { Activity(actor: $0.login, kind: .published) } : recent
     )
-  }
-
-  private func latestReview(on pullURL: URL, near updatedAt: Date) async throws -> Comment? {
-    let reviews = try await get(
-      [ReviewPayload].self, from: pullURL.appending(path: "reviews").appending(queryItems: [URLQueryItem(name: "per_page", value: "100")]))
-    let latest = reviews.last { review in
-      guard let state = ReviewState(apiValue: review.state), state != .dismissed else { return false }
-      return state != .commented || !(review.body ?? "").isEmpty
-    }
-    // GitHub bumps the thread's updated_at a few seconds after the review it reports.
-    guard let latest, let state = ReviewState(apiValue: latest.state), let submittedAt = latest.submittedAt,
-      submittedAt >= updatedAt.addingTimeInterval(-120)
-    else { return nil }
-    return Comment(
-      apiURL: pullURL.appending(path: "reviews/\(latest.id)"), author: latest.user, body: latest.body ?? "", htmlURL: latest.htmlURL,
-      review: state)
   }
 }
 
@@ -108,21 +93,6 @@ private struct CommentPayload: Decodable {
 
   func comment(apiURL: URL) -> Comment {
     Comment(apiURL: apiURL, author: user, body: body ?? "", htmlURL: htmlURL)
-  }
-}
-
-private struct ReviewPayload: Decodable {
-  let id: Int
-  let user: GitHubUser?
-  let body: String?
-  let state: String?
-  let htmlURL: URL?
-  let submittedAt: Date?
-
-  enum CodingKeys: String, CodingKey {
-    case id, user, body, state
-    case htmlURL = "html_url"
-    case submittedAt = "submitted_at"
   }
 }
 

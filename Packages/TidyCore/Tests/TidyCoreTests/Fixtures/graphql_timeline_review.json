@@ -1,0 +1,18 @@
+{
+  "data": {
+    "viewer": {"login": "mona"},
+    "repository": {
+      "issueOrPullRequest": {
+        "createdAt": "2026-10-01T08:00:00Z",
+        "author": {"login": "mona"},
+        "timelineItems": {"nodes": [
+          {"type": "PullRequestCommit", "commit": {"committedDate": "2026-10-15T09:30:00Z", "messageHeadline": "Add toggle", "author": {"name": "Mona Lisa", "user": {"login": "mona"}}}},
+          {"type": "IssueComment", "author": {"login": "hubot"}, "body": "Older remark", "createdAt": "2026-10-15T09:40:00Z", "url": "https://github.com/octo/app/pull/42#issuecomment-1"},
+          {"type": "PullRequestReview", "author": {"login": "octocat"}, "body": "Ship it.\n\nNice work.", "createdAt": "2026-10-15T09:59:30Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-2", "state": "APPROVED"},
+          {"type": "PullRequestReview", "author": {"login": "lisa"}, "body": "", "createdAt": "2026-10-15T09:59:40Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-3", "state": "COMMENTED"},
+          {"type": "PullRequestReview", "author": {"login": "hubot"}, "body": "Stale", "createdAt": "2026-10-15T09:59:50Z", "url": "https://github.com/octo/app/pull/42#pullrequestreview-4", "state": "DISMISSED"}
+        ]}
+      }
+    }
+  }
+}

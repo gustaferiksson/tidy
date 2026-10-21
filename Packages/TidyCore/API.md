@@ -103,11 +103,13 @@ On failure the affected rows roll back and `failure` is set. Offline failures st
 
 `events: AsyncStream<InboxEvent>`, single consumer.
 
-- `.newThread(InboxItem)`: post a banner. Title `item.title`, subtitle `"\(repo) · \(item.thread.reason.title)"`, body first line of `item.previewMarkdown` (or `"Approved by octocat: …"` when `latestComment` is a PR review), `threadIdentifier` = repo full name.
+- `.newThread(InboxItem)`: post a banner. Title `item.title`, subtitle `"\(repo) · \(item.thread.reason.title)"`, body `item.activity?.headline` plus `": "` and the plain first line of `activity.detail` when that is non-empty (`"Approved by octocat: Ship it."`), else the top alert's `summary` for security subjects, else empty (never the subject body), `threadIdentifier` = repo full name.
 - `.summary(count:)`: more than 5 new at once; post "N new notifications" instead.
 - `.withdraw(threadIDs:)`: remove delivered banners for these threads. Sent for local actions and for threads a poll shows were read elsewhere (github.com).
 
 The store already applies: baseline-only first fetch after launch or token change, unread only, `silencedReasons`, and any matching rule (Hide, Don't Notify, opt-in actions). It waits up to `bannerWait` for subject data first. The app still drops banners while the panel is open.
+
+`SubjectDetails.activity` comes from one GraphQL timeline query (`viewer` plus the last 10 timeline items) that `details(for:)` runs alongside the REST fetch for pull requests and issues; if it fails, `activity` is nil and enrichment still succeeds. The newest item within two minutes of `updatedAt` wins (a merge beats its paired close, a request or assignment for the viewer beats one for someone else); a trailing run of commits by one author counts as a push when the newest is from the hour before `updatedAt` and after the subject was created. With nothing newer, a subject created within two minutes of `updatedAt` is "Opened by". The viewer reads as "you". Releases get "Published by" from REST.
 
 ## InboxItem
 
@@ -121,7 +123,8 @@ The store already applies: baseline-only first fetch after launch or token chang
 | `state: SubjectState?`, `severity: Severity?` | Quick Look state word (`state.title`), security severity word (`severity.title`) |
 | `webURL: URL` | Open on GitHub / Copy Link (anchored to the latest comment when known) |
 | `author: GitHubUser?`, `details?.latestComment?.author` | Quick Look people |
-| `previewMarkdown: String?` | Latest non-empty comment body, else subject body (Markdown source). For a pull request with no newer comment, `latestComment` is its newest review when that review is what updated the thread (submitted within two minutes of `updatedAt`), with `review` set |
+| `previewMarkdown: String?` | Latest non-empty comment body, else subject body (Markdown source) |
+| `activity: Activity?` | Why the thread was updated: `details?.activity`, else `latestComment` as a comment. `headline` is the one-line summary ("Approved by octocat", "hubot requested your review", "Lisa pushed 3 commits", "Merged by you"); `detail` is Markdown (comment or review body, newest commit headline); `htmlURL` is set for comments and reviews and wins in `webURL` |
 | `details?.alerts: [SecurityAlert]` | Quick Look alert list: `package`, `severity`, `summary`, `advisoryID`, `htmlURL` |
 | `thread.number` | `#123` for PRs, issues, discussions |
 

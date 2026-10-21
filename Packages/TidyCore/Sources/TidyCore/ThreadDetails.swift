@@ -293,7 +293,7 @@ private struct SearchData: Decodable {
   let search: Connection<SubjectNode>?
 }
 
-private struct Connection<Node: Decodable>: Decodable {
+struct Connection<Node: Decodable>: Decodable {
   private struct Lossy: Decodable {
     let node: Node?
 
