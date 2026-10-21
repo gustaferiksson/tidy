@@ -65,10 +65,11 @@
             }
           ]
         },
-        "timelineItems": {
+        "comments": {
           "filteredCount": 1,
           "nodes": [
             {
+              "type": "PullRequestReview",
               "id": "PRR_1",
               "author": {
                 "login": "mona",

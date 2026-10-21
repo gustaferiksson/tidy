@@ -92,7 +92,7 @@ struct QuickLookView: View {
             ? "State unavailable"
             : (item.thread.subject.kind.isSecurity ? item.severity?.title : state?.title) ?? item.thread.subject.kind.title
         let kindLine = [item.thread.subject.kind.title + (item.thread.number.map { " #\($0)" } ?? ""), item.thread.repository.fullName]
-        let commenter = ThreadDetails.isSupported(item.thread) ? nil : item.details?.latestComment?.author?.login
+        let commenter = rich?.details == nil ? item.details?.latestComment?.author?.login : nil
         let people = [
             item.author.map { "by \($0.login)" },
             commenter.flatMap { $0 == item.author?.login ? nil : "last comment by \($0)" },
@@ -127,7 +127,7 @@ struct QuickLookView: View {
                 .font(.subheadline)
                 preview(of: item)
             } else {
-                ThreadDetailsView(details: rich?.details).id(item.id)
+                ThreadDetailsView(details: rich?.details, kind: item.thread.subject.kind).id(item.id)
             }
         }
         .textSelection(.enabled)

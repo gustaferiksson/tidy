@@ -3,6 +3,7 @@ import TidyCore
 
 struct ThreadDetailsView: View {
     let details: ThreadDetails?
+    let kind: SubjectKind
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
 
@@ -13,7 +14,7 @@ struct ThreadDetailsView: View {
                 DescriptionSection(details: details)
                 if !details.timeline.isEmpty {
                     Divider()
-                    ConversationSection(details: details)
+                    ConversationSection(details: details, kind: kind)
                 }
             }
         } else {
@@ -197,6 +198,7 @@ private struct DescriptionSection: View {
 
 private struct ConversationSection: View {
     let details: ThreadDetails
+    let kind: SubjectKind
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
 
@@ -205,15 +207,15 @@ private struct ConversationSection: View {
             HStack(alignment: .firstTextBaseline) {
                 Text("Conversation").font(.headline)
                 Spacer()
-                if details.hasOlderTimelineItems, let url = details.url {
-                    Link("View all \(details.totalTimelineItems) on GitHub", destination: url)
+                if details.hasOlderComments, let url = details.url {
+                    Link("View all \(details.totalComments) comments on GitHub", destination: url)
                         .font(.subheadline)
                 }
             }
             ForEach(details.timeline) { entry in
                 switch entry {
                 case .event(let event):
-                    TimelineEventRow(event: event, isPullRequest: details.pullRequest != nil)
+                    TimelineEventRow(event: event, subjectKind: kind)
                 case .comment(let comment):
                     if comment.body.isEmpty, let review = comment.review {
                         reviewEvent(comment, review: review)
@@ -253,7 +255,7 @@ private struct ConversationSection: View {
 
 private struct TimelineEventRow: View {
     let event: TimelineEvent
-    let isPullRequest: Bool
+    let subjectKind: SubjectKind
     @Environment(\.colorScheme) private var scheme
     @Environment(\.colorSchemeContrast) private var contrast
 
@@ -265,18 +267,11 @@ private struct TimelineEventRow: View {
                     .font(.system(size: 12))
                     .foregroundStyle(StateGlyphView.color(for: tone, scheme: scheme, contrast: contrast))
                     .frame(width: 20)
-                CommentHeader(author: event.actor, action: verb, date: event.date, label: label, showsAvatar: false)
+                CommentHeader(author: event.actor, action: verb, date: event.date, showsAvatar: false)
             }
             detail
                 .font(.subheadline)
                 .padding(.leading, 28)
-        }
-    }
-
-    private var label: IssueLabel? {
-        switch event.kind {
-        case .labeled(let label), .unlabeled(let label): label
-        default: nil
         }
     }
 
@@ -295,8 +290,8 @@ private struct TimelineEventRow: View {
         case .reopened: return "reopened this"
         case .readyForReview: return "marked this ready for review"
         case .convertedToDraft: return "converted this to a draft"
-        case .labeled: return "added"
-        case .unlabeled: return "removed"
+        case .labeled: return "added a label"
+        case .unlabeled: return "removed a label"
         case .assigned(let user): return user.login == actor ? "self-assigned this" : "assigned \(user.login)"
         case .unassigned(let user): return user.login == actor ? "removed their assignment" : "unassigned \(user.login)"
         case .renamed: return "changed the title"
@@ -312,8 +307,8 @@ private struct TimelineEventRow: View {
         case .requestedReview: (Image(systemName: "eye"), .grey)
         case .removedReviewRequest: (Image(systemName: "eye.slash"), .grey)
         case .merged: (Image(Octicon.gitMerge.rawValue), .purple)
-        case .closed: isPullRequest ? (Image(Octicon.gitPullRequestClosed.rawValue), .red) : (Image(Octicon.issueClosed.rawValue), .purple)
-        case .reopened: (Image((isPullRequest ? Octicon.gitPullRequest : .issueOpened).rawValue), .green)
+        case .closed: subjectKind == .pullRequest ? (Image(Octicon.gitPullRequestClosed.rawValue), .red) : (Image(Octicon.issueClosed.rawValue), .purple)
+        case .reopened: (Image((subjectKind == .pullRequest ? Octicon.gitPullRequest : .issueOpened).rawValue), .green)
         case .readyForReview: (Image(Octicon.gitPullRequest.rawValue), .green)
         case .convertedToDraft: (Image(Octicon.gitPullRequestDraft.rawValue), .grey)
         case .labeled, .unlabeled: (Image(Octicon.tag.rawValue), .grey)
@@ -328,7 +323,7 @@ private struct TimelineEventRow: View {
         switch event.kind {
         case .committed(let commits):
             VStack(alignment: .leading, spacing: 4) {
-                ForEach(commits, id: \.self) { commit in
+                ForEach(commits, id: \.shortSHA) { commit in
                     HStack(alignment: .firstTextBaseline, spacing: 8) {
                         Text(commit.shortSHA)
                             .font(.system(.caption, design: .monospaced))
@@ -337,6 +332,8 @@ private struct TimelineEventRow: View {
                     }
                 }
             }
+        case .labeled(let label), .unlabeled(let label):
+            LabelCapsule(label: label)
         case .renamed(let old, let new):
             Text("\(Text(old).strikethrough().foregroundStyle(.secondary)) \(Text(Image(systemName: "arrow.right")).foregroundStyle(.secondary)) \(new)")
                 .fixedSize(horizontal: false, vertical: true)
@@ -359,7 +356,6 @@ private struct CommentHeader: View {
     let action: String
     let date: Date?
     var url: URL? = nil
-    var label: IssueLabel? = nil
     var showsAvatar = true
     var isAnswer = false
 
@@ -369,7 +365,6 @@ private struct CommentHeader: View {
             HStack(spacing: 4) {
                 Text(author?.login ?? "ghost").fontWeight(.semibold).layoutPriority(1)
                 Text(action).foregroundStyle(.secondary).truncationMode(.middle)
-                if let label { LabelCapsule(label: label).layoutPriority(1) }
                 if let date {
                     Text("·").foregroundStyle(.secondary).layoutPriority(1)
                     timestamp(date).layoutPriority(1)

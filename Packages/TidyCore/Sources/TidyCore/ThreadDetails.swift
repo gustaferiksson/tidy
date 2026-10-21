@@ -9,8 +9,8 @@ public struct ThreadDetails: Hashable, Sendable {
   public var assignees: [GitHubUser]
   public var milestone: String?
   public var timeline: [TimelineEntry]
-  public var totalTimelineItems: Int
-  public var hasOlderTimelineItems: Bool
+  public var totalComments: Int
+  public var hasOlderComments: Bool
   public var pullRequest: PullRequestDetails?
   public var discussion: DiscussionDetails?
 
@@ -23,8 +23,8 @@ public struct ThreadDetails: Hashable, Sendable {
     assignees: [GitHubUser] = [],
     milestone: String? = nil,
     timeline: [TimelineEntry] = [],
-    totalTimelineItems: Int = 0,
-    hasOlderTimelineItems: Bool = false,
+    totalComments: Int = 0,
+    hasOlderComments: Bool = false,
     pullRequest: PullRequestDetails? = nil,
     discussion: DiscussionDetails? = nil
   ) {
@@ -36,8 +36,8 @@ public struct ThreadDetails: Hashable, Sendable {
     self.assignees = assignees
     self.milestone = milestone
     self.timeline = timeline
-    self.totalTimelineItems = totalTimelineItems
-    self.hasOlderTimelineItems = hasOlderTimelineItems
+    self.totalComments = totalComments
+    self.hasOlderComments = hasOlderComments
     self.pullRequest = pullRequest
     self.discussion = discussion
   }
@@ -206,6 +206,13 @@ public enum TimelineEntry: Hashable, Sendable, Identifiable {
     case .event(let event): event.id
     }
   }
+
+  public var date: Date {
+    switch self {
+    case .comment(let comment): comment.createdAt
+    case .event(let event): event.date
+    }
+  }
 }
 
 public struct TimelineEvent: Hashable, Sendable, Identifiable {
@@ -235,16 +242,6 @@ public struct TimelineEvent: Hashable, Sendable, Identifiable {
     self.actor = actor
     self.kind = kind
     self.date = date
-  }
-
-  func absorbing(_ next: TimelineEvent) -> TimelineEvent? {
-    guard next.actor?.login == actor?.login else { return nil }
-    if case .committed(let commits) = kind, case .committed(let more) = next.kind {
-      return TimelineEvent(id: id, actor: actor, kind: .committed(commits + more), date: next.date)
-    }
-    guard case .requestedReview(let reviewers) = kind, case .requestedReview(let more) = next.kind, next.date.timeIntervalSince(date) < 60
-    else { return nil }
-    return TimelineEvent(id: id, actor: actor, kind: .requestedReview(from: reviewers + more), date: next.date)
   }
 }
 
@@ -307,12 +304,9 @@ extension GitHubClient {
     }
   }
 
-  static let conversationLimit = 50
-
   static func issueOrPullRequestQuery(teamReviewer: String) -> String {
-    let shared = """
+    let sharedEvents = """
       type: __typename
-      ... on IssueComment { id author { ...Who } body createdAt url }
       ... on ClosedEvent { id actor { ...Who } createdAt }
       ... on ReopenedEvent { id actor { ...Who } createdAt }
       ... on LabeledEvent { id actor { ...Who } createdAt label { name color } }
@@ -332,8 +326,12 @@ extension GitHubClient {
               labels(first: 20) { nodes { name color } }
               assignees(first: 10) { nodes { ...Who } }
               milestone { title }
-              timelineItems(last: \(conversationLimit), itemTypes: [ISSUE_COMMENT, CLOSED_EVENT, REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT, ASSIGNED_EVENT, UNASSIGNED_EVENT, RENAMED_TITLE_EVENT, CROSS_REFERENCED_EVENT]) { filteredCount nodes {
-                \(shared)
+              comments: timelineItems(last: 10, itemTypes: [ISSUE_COMMENT]) { filteredCount nodes {
+                type: __typename
+                ... on IssueComment { id author { ...Who } body createdAt url }
+              } }
+              events: timelineItems(last: 30, itemTypes: [CLOSED_EVENT, REOPENED_EVENT, LABELED_EVENT, UNLABELED_EVENT, ASSIGNED_EVENT, UNASSIGNED_EVENT, RENAMED_TITLE_EVENT, CROSS_REFERENCED_EVENT]) { nodes {
+                \(sharedEvents)
               } }
             }
             ... on PullRequest {
@@ -348,10 +346,14 @@ extension GitHubClient {
                 ... on CheckRun { name status conclusion }
                 ... on StatusContext { context state }
               } } } } } }
-              timelineItems(last: \(conversationLimit), itemTypes: [PULL_REQUEST_COMMIT, ISSUE_COMMENT, PULL_REQUEST_REVIEW, REVIEW_REQUESTED_EVENT, REVIEW_REQUEST_REMOVED_EVENT, MERGED_EVENT, CLOSED_EVENT, REOPENED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT, HEAD_REF_DELETED_EVENT, READY_FOR_REVIEW_EVENT, CONVERT_TO_DRAFT_EVENT, LABELED_EVENT, UNLABELED_EVENT, ASSIGNED_EVENT, UNASSIGNED_EVENT, RENAMED_TITLE_EVENT, CROSS_REFERENCED_EVENT]) { filteredCount nodes {
-                \(shared)
-                ... on PullRequestCommit { id commit { abbreviatedOid messageHeadline committedDate url author { name user { ...Who } } } }
+              comments: timelineItems(last: 10, itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW]) { filteredCount nodes {
+                type: __typename
+                ... on IssueComment { id author { ...Who } body createdAt url }
                 ... on PullRequestReview { id author { ...Who } body createdAt url state }
+              } }
+              events: timelineItems(last: 30, itemTypes: [PULL_REQUEST_COMMIT, REVIEW_REQUESTED_EVENT, REVIEW_REQUEST_REMOVED_EVENT, MERGED_EVENT, CLOSED_EVENT, REOPENED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT, HEAD_REF_DELETED_EVENT, READY_FOR_REVIEW_EVENT, CONVERT_TO_DRAFT_EVENT, LABELED_EVENT, UNLABELED_EVENT, ASSIGNED_EVENT, UNASSIGNED_EVENT, RENAMED_TITLE_EVENT, CROSS_REFERENCED_EVENT]) { nodes {
+                \(sharedEvents)
+                ... on PullRequestCommit { id commit { abbreviatedOid messageHeadline committedDate url author { name user { ...Who } } } }
                 ... on ReviewRequestedEvent { id actor { ...Who } createdAt requestedReviewer { ...Who \(teamReviewer) } }
                 ... on ReviewRequestRemovedEvent { id actor { ...Who } createdAt requestedReviewer { ...Who \(teamReviewer) } }
                 ... on MergedEvent { id actor { ...Who } createdAt mergeRefName }
@@ -381,7 +383,7 @@ extension GitHubClient {
             title author { ...Who } createdAt url body isAnswered
             category { name }
             labels(first: 20) { nodes { name color } }
-            comments(last: 10) { totalCount nodes { id author { ...Who } body createdAt url isAnswer } }
+            comments(last: 10) { totalCount nodes { type: __typename id author { ...Who } body createdAt url isAnswer } }
           }
         }
       }
@@ -494,7 +496,7 @@ struct TimelineNode: Decodable {
 
   var entry: TimelineEntry? {
     guard let id else { return nil }
-    if type == nil || type == "IssueComment" || type == "PullRequestReview" {
+    if type == "IssueComment" || type == "PullRequestReview" || type == "DiscussionComment" {
       guard let createdAt, state != "COMMENTED" || !(body ?? "").isEmpty else { return nil }
       return .comment(TimelineComment(
         id: id, author: author?.user, body: body ?? "", createdAt: createdAt, url: url,
@@ -533,21 +535,34 @@ struct TimelineNode: Decodable {
     }
   }
 
-  static func timeline(of nodes: [TimelineNode]) -> [TimelineEntry] {
-    var entries: [TimelineEntry] = []
-    for entry in nodes.compactMap(\.entry) {
-      guard case .event(let event) = entry, case .event(let previous)? = entries.last else {
-        entries.append(entry)
-        continue
+  static func timeline(comments: [TimelineNode], events: [TimelineNode]) -> [TimelineEntry] {
+    var pendingComments = comments.compactMap(\.entry)[...]
+    var interleaved: [TimelineEntry] = []
+    for event in events.compactMap(\.entry) {
+      while let comment = pendingComments.first, comment.date <= event.date {
+        interleaved.append(comment)
+        pendingComments.removeFirst()
       }
-      if case .merged = previous.kind, event.kind == .closed { continue }
-      if let combined = previous.absorbing(event) {
-        entries[entries.count - 1] = .event(combined)
-      } else {
-        entries.append(entry)
-      }
+      interleaved.append(event)
     }
-    return entries
+    let mergeDates = interleaved.compactMap { entry -> Date? in
+      guard case .event(let event) = entry, case .merged = event.kind else { return nil }
+      return event.date
+    }
+    return (interleaved + pendingComments).reduce(into: []) { entries, entry in
+      guard case .event(let event) = entry else { return entries.append(entry) }
+      if event.kind == .closed, mergeDates.contains(where: { abs($0.timeIntervalSince(event.date)) < 10 }) { return }
+      guard case .event(let previous)? = entries.last, previous.actor?.login == event.actor?.login else { return entries.append(entry) }
+      if case .committed(let commits) = previous.kind, case .committed(let more) = event.kind {
+        entries[entries.count - 1] = .event(TimelineEvent(id: previous.id, actor: previous.actor, kind: .committed(commits + more), date: event.date))
+        return
+      }
+      if case .requestedReview(let reviewers) = previous.kind, case .requestedReview(let more) = event.kind, event.date.timeIntervalSince(previous.date) < 60 {
+        entries[entries.count - 1] = .event(TimelineEvent(id: previous.id, actor: previous.actor, kind: .requestedReview(from: reviewers + more), date: previous.date))
+        return
+      }
+      entries.append(entry)
+    }
   }
 }
 
@@ -597,7 +612,7 @@ private struct SubjectNode: Decodable {
   let assignees: Connection<ActorNode>?
   let milestone: Title?
   let comments: Connection<TimelineNode>?
-  let timelineItems: Connection<TimelineNode>?
+  let events: Connection<TimelineNode>?
   let baseRefName: String?
   let headRefName: String?
   let additions: Int?
@@ -613,8 +628,7 @@ private struct SubjectNode: Decodable {
 
   var details: ThreadDetails? {
     guard kind != nil else { return nil }
-    let conversation = timelineItems ?? comments
-    let fetched = conversation?.fetchedCount ?? 0
+    let fetchedComments = comments?.fetchedCount ?? 0
     return ThreadDetails(
       author: author?.user,
       createdAt: createdAt,
@@ -623,9 +637,9 @@ private struct SubjectNode: Decodable {
       labels: labels?.items.map(\.label) ?? [],
       assignees: assignees?.items.compactMap(\.user) ?? [],
       milestone: milestone?.title,
-      timeline: TimelineNode.timeline(of: conversation?.items ?? []),
-      totalTimelineItems: conversation?.totalCount ?? fetched,
-      hasOlderTimelineItems: (conversation?.totalCount ?? 0) > fetched,
+      timeline: TimelineNode.timeline(comments: comments?.items ?? [], events: events?.items ?? []),
+      totalComments: comments?.totalCount ?? fetchedComments,
+      hasOlderComments: (comments?.totalCount ?? 0) > fetchedComments,
       pullRequest: kind == "PullRequest" ? pullRequest : nil,
       discussion: kind == "Discussion" ? DiscussionDetails(category: category?.name, isAnswered: isAnswered ?? false) : nil
     )

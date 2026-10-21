@@ -65,10 +65,11 @@
             }
           ]
         },
-        "timelineItems": {
+        "comments": {
           "filteredCount": 2,
           "nodes": [
             {
+              "type": "PullRequestReview",
               "id": "PRR_1",
               "author": {
                 "login": "hubot",
@@ -80,6 +81,7 @@
               "state": "COMMENTED"
             },
             {
+              "type": "PullRequestReview",
               "id": "PRR_2",
               "author": {
                 "login": "octocat",

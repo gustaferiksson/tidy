@@ -21,6 +21,7 @@ struct ThreadDetailsTests {
     let query = try #require(request.json?["query"] as? String)
     #expect(query.contains("issueOrPullRequest(number: $number)"))
     #expect(query.contains("statusCheckRollup"))
+    #expect(query.contains("comments: timelineItems(last: 10, itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW])"), "events can't crowd comments out")
   }
 
   @Test func decodesPullRequest() async throws {
@@ -46,13 +47,12 @@ struct ThreadDetailsTests {
     #expect(checks.failing == ["lint"])
     #expect(checks.pending == ["deploy-preview"])
     #expect(checks.summary == "3 checks passed · 1 failing: lint · 1 pending")
-    let comments = details.timeline.compactMap { if case .comment(let comment) = $0 { comment } else { nil } }
-    #expect(comments.map(\.id) == ["IC_1", "PRR_1", "PRR_3"])
-    #expect(comments.map(\.review) == [nil, .approved, .changesRequested])
-    #expect(comments.last?.author?.login == "hubot")
-    #expect(comments.first?.url == URL(string: "https://github.com/octo/app/pull/42#issuecomment-1"))
-    #expect(details.totalTimelineItems == 14)
-    #expect(details.hasOlderTimelineItems)
+    #expect(details.comments.map(\.id) == ["IC_1", "PRR_1", "PRR_3"])
+    #expect(details.comments.map(\.review) == [nil, .approved, .changesRequested])
+    #expect(details.comments.last?.author?.login == "hubot")
+    #expect(details.comments.first?.url == URL(string: "https://github.com/octo/app/pull/42#issuecomment-1"))
+    #expect(details.totalComments == 14)
+    #expect(details.hasOlderComments)
     #expect(details.discussion == nil)
   }
 
@@ -76,15 +76,18 @@ struct ThreadDetailsTests {
     let event = { (id: String, actor: GitHubUser, kind: TimelineEvent.Kind, at: String) in
       TimelineEntry.event(TimelineEvent(id: id, actor: actor, kind: kind, date: try date(at)))
     }
-    #expect(details.timeline.map(\.id) == ["IC_1", "PURC_1", "PURC_4", "RRE_1", "LE_1", "UNLE_1", "RTE_1", "CRE_1", "ME_1"])
-    #expect(Array(details.timeline.dropFirst()) == [
+    #expect(details.timeline.map(\.id) == ["PURC_1", "PURC_4", "IC_1", "RRE_1", "RRE_3", "LE_1", "UNLE_1", "RTE_1", "CRE_1", "ME_1", "HRDE_1"])
+    #expect(details.timeline.prefix(2) == [
       try event("PURC_1", mona, .committed([
         CommitSummary(shortSHA: "a1bf3b9", headline: "Add the export fields", url: URL(string: "https://github.com/octo/app/commit/a1bf3b9")),
         CommitSummary(shortSHA: "b2c4d6e", headline: "Resolve comparison fields"),
         CommitSummary(shortSHA: "c3d5e7f", headline: "Cover the export in tests"),
       ]), "2026-10-03T08:00:00Z"),
       try event("PURC_4", GitHubUser(login: "Release Bot"), .committed([CommitSummary(shortSHA: "d4e6f8a", headline: "Bump the schema")]), "2026-10-03T09:00:00Z"),
-      try event("RRE_1", mona, .requestedReview(from: [GitHubUser(login: "lisa"), GitHubUser(login: "hubot")]), "2026-10-15T10:00:01Z"),
+    ], "commits group in node order even when a commit date is older")
+    #expect(details.timeline.dropFirst(3) == [
+      try event("RRE_1", mona, .requestedReview(from: [GitHubUser(login: "lisa"), GitHubUser(login: "hubot")]), "2026-10-15T10:00:00Z"),
+      try event("RRE_3", mona, .requestedReview(from: [GitHubUser(login: "octocat")]), "2026-10-15T10:01:20Z"),
       try event("LE_1", mona, .labeled(IssueLabel(name: "ui", color: "a2eeef")), "2026-10-15T11:00:00Z"),
       try event("UNLE_1", mona, .unlabeled(IssueLabel(name: "wip", color: "ededed")), "2026-10-15T11:01:00Z"),
       try event("RTE_1", mona, .renamed(from: "WIP export", to: "Export comparison fields"), "2026-10-15T11:02:00Z"),
@@ -92,9 +95,10 @@ struct ThreadDetailsTests {
         repository: "octo/web", number: 9, title: "Exports miss comparison fields", url: URL(string: "https://github.com/octo/web/issues/9"))),
         "2026-10-15T12:00:00Z"),
       try event("ME_1", mona, .merged(into: "main"), "2026-10-15T13:00:00Z"),
-    ], "the empty commented review and the close paired with the merge are dropped")
-    #expect(details.totalTimelineItems == 14)
-    #expect(!details.hasOlderTimelineItems, "grouped commits are not missing items")
+      try event("HRDE_1", mona, .deletedBranch("mona/export"), "2026-10-15T13:00:00Z"),
+    ], "review requests group within a minute of the first; the empty commented review and the close paired with the merge are dropped")
+    #expect(details.totalComments == 2)
+    #expect(!details.hasOlderComments)
   }
 
   @Test func requestedUserAndTeamApprovedAndChangesRequested() async throws {
@@ -115,9 +119,8 @@ struct ThreadDetailsTests {
       Reviewer(user: GitHubUser(login: "mona", avatarURL: URL(string: "https://avatars.githubusercontent.com/u/2?s=40&v=4")), state: .commented),
       Reviewer(user: GitHubUser(login: "octocat", avatarURL: URL(string: "https://avatars.githubusercontent.com/u/1?s=40&v=4")), state: .requested),
     ])
-    let comments = details.timeline.compactMap { if case .comment(let comment) = $0 { comment } else { nil } }
-    #expect(comments.map(\.review) == [.commented])
-    #expect(details.totalTimelineItems == 1)
+    #expect(details.comments.map(\.review) == [.commented])
+    #expect(details.totalComments == 1)
   }
 
   @Test func recordedReRequestedReviewerIsPendingAgain() async throws {
@@ -128,10 +131,9 @@ struct ThreadDetailsTests {
     #expect(pull.reviewDecision == .approved)
     #expect(pull.reviewers.map(\.user.login) == ["octocat", "hubot"])
     #expect(pull.reviewers.map(\.state) == [.approved, .requested])
-    let comments = details.timeline.compactMap { if case .comment(let comment) = $0 { comment } else { nil } }
-    #expect(comments.map(\.author?.login) == ["hubot", "octocat"])
-    #expect(comments.map(\.review) == [.commented, .approved])
-    #expect(details.totalTimelineItems == 2)
+    #expect(details.comments.map(\.author?.login) == ["hubot", "octocat"])
+    #expect(details.comments.map(\.review) == [.commented, .approved])
+    #expect(details.totalComments == 2)
   }
 
   @Test func partialErrorsAndMalformedNodesKeepTheRest() async throws {
@@ -140,7 +142,7 @@ struct ThreadDetailsTests {
       {"data":{"repository":{"issueOrPullRequest":{"kind":"PullRequest","baseRefName":"main","headRefName":"f",
         "latestReviews":{"nodes":[{"state":"APPROVED","author":{"login":"octocat"}},null,{"state":7,"author":{"login":"bad"}}]},
         "reviewRequests":{"nodes":[{"requestedReviewer":null},{"requestedReviewer":{"login":"hubot"}}]},
-        "timelineItems":{"filteredCount":3,"nodes":[{"id":"IC_1","body":"hi","createdAt":"yesterday"},{"id":"IC_2","body":"ok","createdAt":"2026-10-15T09:00:00Z"}]}
+        "comments":{"filteredCount":3,"nodes":[{"type":"IssueComment","id":"IC_1","body":"hi","createdAt":"yesterday"},{"type":"IssueComment","id":"IC_2","body":"ok","createdAt":"2026-10-15T09:00:00Z"}]}
       }}},
       "errors":[{"type":"FORBIDDEN","path":["repository","issueOrPullRequest","reviewRequests","nodes",0,"requestedReviewer"],"message":"Resource not accessible"}]}
       """#
@@ -149,9 +151,8 @@ struct ThreadDetailsTests {
     let pull = try #require(details.pullRequest)
     #expect(pull.reviewers.map(\.user.login) == ["octocat", "hubot"])
     #expect(pull.reviewers.map(\.state) == [.approved, .requested])
-    let comments = details.timeline.compactMap { if case .comment(let comment) = $0 { comment } else { nil } }
-    #expect(comments.map(\.id) == ["IC_2"])
-    #expect(details.totalTimelineItems == 3)
+    #expect(details.comments.map(\.id) == ["IC_2"])
+    #expect(details.totalComments == 3)
   }
 
   @Test func decodesIssue() async throws {
@@ -162,10 +163,9 @@ struct ThreadDetailsTests {
     #expect(details.pullRequest == nil)
     #expect(details.labels.map(\.name) == ["bug"])
     #expect(details.milestone == nil)
-    let comments = details.timeline.compactMap { if case .comment(let comment) = $0 { comment } else { nil } }
-    #expect(comments.map(\.body) == ["Can't reproduce.", "Same here."])
-    #expect(comments.last?.author == nil)
-    #expect(details.totalTimelineItems == 2)
+    #expect(details.comments.map(\.body) == ["Can't reproduce.", "Same here."])
+    #expect(details.comments.last?.author == nil)
+    #expect(details.totalComments == 2)
   }
 
   @Test func discussionSearchesByTitleAndMatchesExactly() async throws {
@@ -175,7 +175,7 @@ struct ThreadDetailsTests {
         {"kind":"Discussion","title":"How do I configure themes? (old)","body":"no","comments":{"totalCount":0,"nodes":[]}},
         {},
         {"kind":"Discussion","title":"How do I configure themes?","body":"yes","isAnswered":true,"category":{"name":"Q&A"},
-         "comments":{"totalCount":1,"nodes":[{"id":"DC_1","body":"Use Settings.","createdAt":"2026-10-15T09:00:00Z","isAnswer":true}]}}
+         "comments":{"totalCount":1,"nodes":[{"type":"DiscussionComment","id":"DC_1","body":"Use Settings.","createdAt":"2026-10-15T09:00:00Z","isAnswer":true}]}}
       ]}}}
       """#
     server.on("POST", "/graphql", respond: StubResponse(status: 200, body: Data(body.utf8)))
@@ -184,8 +184,7 @@ struct ThreadDetailsTests {
     #expect(variables?["query"] as? String == #"repo:octo/app in:title "How do I configure themes?""#)
     #expect(details.body == "yes")
     #expect(details.discussion == DiscussionDetails(category: "Q&A", isAnswered: true))
-    let comments = details.timeline.compactMap { if case .comment(let comment) = $0 { comment } else { nil } }
-    #expect(comments.first?.isAnswer == true)
+    #expect(details.comments.first?.isAnswer == true)
   }
 
   @Test func missingNodeIsNotFound() async throws {
@@ -308,3 +307,9 @@ struct ThreadDetailsStoreTests {
     store.disconnect()
     #expect(store.threadDetails(for: item) == nil)
   }}
+
+extension ThreadDetails {
+  fileprivate var comments: [TimelineComment] {
+    timeline.compactMap { if case .comment(let comment) = $0 { comment } else { nil } }
+  }
+}
