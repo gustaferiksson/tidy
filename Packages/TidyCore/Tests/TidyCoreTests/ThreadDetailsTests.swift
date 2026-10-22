@@ -250,17 +250,14 @@ struct ThreadDetailsStoreTests {
   }
 
   func waitForLoad(_ store: InboxStore, _ id: String) async throws -> ThreadDetailsStatus? {
-    for _ in 0..<100 {
-      let item = try #require(store.inbox.first { $0.id == id })
-      if let status = store.threadDetails(for: item), status != .loading { return status }
-      try await Task.sleep(for: .milliseconds(10))
-    }
-    return nil
+    let item = try #require(store.inbox.first { $0.id == id })
+    await waitUntil { store.threadDetails(for: item).map { $0 != .loading } ?? false }
+    return store.threadDetails(for: item)
   }
 
   @Test func pollingNeverFetchesThreadDetails() async throws {
-    _ = await makeStore()
-    try await Task.sleep(for: .milliseconds(100))
+    let store = await makeStore()
+    await waitUntil { store.inbox.allSatisfy { $0.status != .loading } }
     #expect(graphQLRequests() == 0)
   }
 
@@ -271,7 +268,6 @@ struct ThreadDetailsStoreTests {
     store.loadThreadDetails(for: "101")
     #expect(try await waitForLoad(store, "101")?.details?.pullRequest?.headBranch == "mona/dark-mode")
     store.loadThreadDetails(for: "101")
-    try await Task.sleep(for: .milliseconds(50))
     #expect(graphQLRequests() == 1)
 
     threads.withLock { $0[0].updatedAt.addTimeInterval(60) }
@@ -292,7 +288,6 @@ struct ThreadDetailsStoreTests {
     store.loadThreadDetails(for: "102")
     #expect(try await waitForLoad(store, "102") == .unavailable)
     store.loadThreadDetails(for: "102")
-    try await Task.sleep(for: .milliseconds(50))
     #expect(graphQLRequests() == 2)
   }
 

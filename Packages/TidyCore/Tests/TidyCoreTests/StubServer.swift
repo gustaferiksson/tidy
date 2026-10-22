@@ -1,5 +1,6 @@
 import Foundation
 import Synchronization
+import Testing
 
 @testable import TidyCore
 
@@ -135,5 +136,17 @@ final class Locked<Value: Sendable>: Sendable {
 
   func withLock<Result>(_ body: (inout Value) -> Result) -> Result {
     mutex.withLock { body(&$0) }
+  }
+}
+
+@MainActor
+func waitUntil(timeout: Duration = .seconds(5), sourceLocation: SourceLocation = #_sourceLocation, _ condition: () -> Bool) async {
+  let deadline = ContinuousClock.now + timeout
+  while !condition() {
+    guard ContinuousClock.now < deadline else {
+      Issue.record("Timed out waiting for condition", sourceLocation: sourceLocation)
+      return
+    }
+    await Task.yield()
   }
 }
