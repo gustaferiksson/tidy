@@ -48,20 +48,16 @@ final class EventRecorder: Sendable {
     }
   }
 
-  func all() async -> [InboxEvent] {
-    try? await Task.sleep(for: .milliseconds(50))
+  @MainActor func all(count: Int = 0) async -> [InboxEvent] {
+    await waitUntil { events.withLock(\.count) >= count }
     return events.withLock { recorded in
       defer { recorded.removeAll() }
       return recorded
     }
   }
 
-  func banners() async -> [InboxEvent] {
-    try? await Task.sleep(for: .milliseconds(50))
-    return events.withLock { recorded in
-      defer { recorded.removeAll() }
-      return recorded.filter { if case .withdraw = $0 { false } else { true } }
-    }
+  @MainActor func banners(count: Int = 0) async -> [InboxEvent] {
+    await all(count: count).filter { if case .withdraw = $0 { false } else { true } }
   }
 }
 
@@ -84,10 +80,10 @@ struct InboxStoreTests {
     }
   }
 
-  func makeStore(commitDelay: Duration = .seconds(60)) -> InboxStore {
+  func makeStore() -> InboxStore {
     InboxStore(
       directory: directory, tokenStorage: MemoryTokenStorage(server.token), session: server.session,
-      commitDelay: commitDelay, bannerWait: .milliseconds(200), networkPaths: AsyncStream { _ in },
+      commitDelay: .seconds(60), bannerWait: .milliseconds(200), networkPaths: AsyncStream { _ in },
       now: { Self.now })
   }
 
@@ -114,7 +110,7 @@ struct InboxStoreTests {
     #expect(await recorder.banners().isEmpty)
     addThread("201")
     await store.refresh()
-    let banners = await recorder.banners()
+    let banners = await recorder.banners(count: 1)
     #expect(banners.count == 1)
     guard case .newThread(let item) = banners.first else { return #expect(Bool(false)) }
     #expect(item.id == "201")
@@ -129,7 +125,7 @@ struct InboxStoreTests {
       for index in list.indices where ["101", "103"].contains(list[index].id) { list[index].unread = false }
     }
     await store.refresh()
-    #expect(await recorder.all() == [.withdraw(threadIDs: ["101", "103"])])
+    #expect(await recorder.all(count: 1) == [.withdraw(threadIDs: ["101", "103"])])
   }
 
   @Test func moreThanFiveNewThreadsSendOneSummary() async {
@@ -138,7 +134,7 @@ struct InboxStoreTests {
     await store.refresh()
     for index in 1...6 { addThread("30\(index)", minutesAfterNewest: Double(index)) }
     await store.refresh()
-    #expect(await recorder.banners() == [.summary(count: 6)])
+    #expect(await recorder.banners(count: 1) == [.summary(count: 6)])
   }
 
   @Test func exactlyFiveNewThreadsSendIndividualBanners() async {
@@ -147,7 +143,7 @@ struct InboxStoreTests {
     await store.refresh()
     for index in 1...5 { addThread("30\(index)", minutesAfterNewest: Double(index)) }
     await store.refresh()
-    #expect(await recorder.banners().count == 5)
+    #expect(await recorder.banners(count: 5).count == 5)
   }
 
   @Test func readSilencedAndFilteredThreadsDoNotNotify() async {
@@ -161,7 +157,7 @@ struct InboxStoreTests {
     addThread("403", reason: .teamMention)
     addThread("404", reason: .assign)
     await store.refresh()
-    let banners = await recorder.banners()
+    let banners = await recorder.banners(count: 1)
     #expect(banners.count == 1)
     guard case .newThread(let item) = banners.first else { return #expect(Bool(false)) }
     #expect(item.id == "404")
@@ -177,8 +173,9 @@ struct InboxStoreTests {
     #expect(store.account?.user.login == "octocat")
     addThread("501")
     await store.refresh()
-    #expect(await recorder.banners().isEmpty)
     #expect(store.inbox.contains { $0.id == "501" })
+    store.markRead(["501"])
+    #expect(await recorder.all(count: 1) == [.withdraw(threadIDs: ["501"])])
   }
 
   @Test func missingAccountIsFilledOnNextPoll() async throws {
@@ -260,9 +257,9 @@ struct InboxStoreTests {
     }
     let store = makeStore()
     store.start()
-    try await Task.sleep(for: .milliseconds(50))
+    await waitUntil { calls.withLock { $0 } == 1 }
     store.pollNow()
-    try await Task.sleep(for: .milliseconds(300))
+    await waitUntil { store.hasLoaded }
     #expect(store.hasLoaded)
     #expect(calls.withLock { $0 } == 2)
     store.stop()
@@ -273,14 +270,15 @@ struct InboxStoreTests {
       directory: directory, tokenStorage: MemoryTokenStorage(server.token), session: server.session,
       bannerWait: .seconds(2), networkPaths: AsyncStream { _ in }, now: { Self.now })
     await store.refresh()
-    try await Task.sleep(for: .milliseconds(50))
+    await waitUntil { store.inbox.allSatisfy { $0.status != .loading } }
     server.on("GET", "/repos/octo/app/pulls/42", respond: StubResponse(status: 200, body: Data("{}".utf8), delay: 2))
     threads.withLock { list in
       for index in list.indices where list[index].id == "101" { list[index].updatedAt = Self.now }
     }
     let refresh = Task { await store.refresh() }
-    try await Task.sleep(for: .milliseconds(200))
+    await waitUntil { requests("GET").count { $0 == "/repos/octo/app/pulls/42" } == 2 }
     #expect(!store.isRefreshing)
+    #expect(store.inbox.first { $0.id == "101" }?.status == .loading)
     refresh.cancel()
   }
 
@@ -345,13 +343,12 @@ struct InboxStoreTests {
   }
 
   @Test func doneDeletesOnlyAfterTheDelay() async throws {
-    let store = makeStore(commitDelay: .milliseconds(300))
+    let store = makeStore()
     await store.refresh()
     store.markDone(["101", "102"])
-    try await Task.sleep(for: .milliseconds(100))
     #expect(requests("DELETE").isEmpty)
     #expect(store.undoableChange != nil)
-    try await Task.sleep(for: .milliseconds(500))
+    await store.flushPending()
     #expect(Set(requests("DELETE")) == ["/notifications/threads/101", "/notifications/threads/102"])
     #expect(requests("PATCH").isEmpty)
     #expect(store.pending.isEmpty)
@@ -360,10 +357,10 @@ struct InboxStoreTests {
   }
 
   @Test func doneIsNotPersistedAsASection() async throws {
-    let store = makeStore(commitDelay: .milliseconds(50))
+    let store = makeStore()
     await store.refresh()
     store.markDone(["101"])
-    try await Task.sleep(for: .milliseconds(300))
+    await store.flushPending()
     let files = try FileManager.default.contentsOfDirectory(atPath: directory.path())
     #expect(!files.contains { $0.hasPrefix("done") })
     #expect(makeStore().pending.isEmpty)
@@ -390,11 +387,11 @@ struct InboxStoreTests {
     store.markRead(opening: "101")
     #expect(store.inbox.first { $0.id == "101" }?.isUnread == false)
     #expect(store.undoableChange == doneChange)
-    try await Task.sleep(for: .milliseconds(100))
+    await waitUntil { !requests("PATCH").isEmpty }
     #expect(requests("PATCH") == ["/notifications/threads/101"])
     #expect(requests("DELETE").isEmpty)
     store.markRead(opening: "101")
-    try await Task.sleep(for: .milliseconds(100))
+    #expect(store.pending.count == 1)
     #expect(requests("PATCH") == ["/notifications/threads/101"])
   }
 
@@ -402,8 +399,9 @@ struct InboxStoreTests {
     let store = makeStore()
     await store.refresh()
     store.loadDetails(for: "101")
-    try await Task.sleep(for: .milliseconds(100))
+    await waitUntil { store.inbox.first { $0.id == "101" }?.status != .loading }
     #expect(store.inbox.first { $0.id == "101" }?.isUnread == true)
+    #expect(store.pending.isEmpty)
     #expect(requests("PATCH").isEmpty)
   }
 
@@ -462,11 +460,11 @@ struct InboxStoreTests {
 
   @Test func undoWindowClosesWhileOfflineAndAfterRelaunch() async throws {
     server.on("PATCH", "/notifications/threads/101", respond: .offline)
-    let store = makeStore(commitDelay: .milliseconds(50))
+    let store = makeStore()
     await store.refresh()
     store.markRead(["101"])
     #expect(store.undoableChange?.threadIDs == ["101"])
-    try await Task.sleep(for: .milliseconds(300))
+    await store.flushPending()
     #expect(store.pending.map(\.threadIDs) == [["101"]])
     #expect(store.undoableChange == nil)
     #expect(store.undo().isEmpty)
@@ -643,7 +641,7 @@ struct InboxStoreTests {
     await store.refresh()
     addThread("601")
     await store.refresh()
-    try await Task.sleep(for: .milliseconds(100))
+    await waitUntil { !requests("DELETE").isEmpty }
     #expect(requests("DELETE") == ["/notifications/threads/601"])
     #expect(!store.inbox.contains { $0.id == "601" })
     #expect(store.inbox.contains { $0.id == "101" })
@@ -654,14 +652,14 @@ struct InboxStoreTests {
     server.on("GET", "/repos/octo/app/issues/comments/9001", respond: .json("comment"))
     let store = makeStore()
     await store.refresh()
-    try await Task.sleep(for: .milliseconds(200))
+    await waitUntil { store.inbox.allSatisfy { $0.status != .loading } }
     let pull = try #require(store.inbox.first { $0.id == "101" })
     #expect(pull.state == .draft)
     #expect(pull.glyph.tone == .grey)
     #expect(store.inbox.first { $0.id == "105" }?.status == .failed)
     let fetches = server.requests.filter { $0.path == "/repos/octo/app/pulls/42" }.count
     await store.refresh()
-    try await Task.sleep(for: .milliseconds(100))
+    #expect(store.inbox.allSatisfy { $0.status != .loading })
     #expect(server.requests.filter { $0.path == "/repos/octo/app/pulls/42" }.count == fetches)
     #expect(store.inbox.first { $0.id == "101" }?.state == .draft)
   }
@@ -692,19 +690,20 @@ struct InboxStoreTests {
     let (paths, network) = AsyncStream.makeStream(of: Bool.self)
     let store = InboxStore(
       directory: directory, tokenStorage: MemoryTokenStorage(server.token), session: server.session,
-      commitDelay: .milliseconds(10), networkPaths: paths, now: { Self.now })
+      networkPaths: paths, now: { Self.now })
     store.start()
-    try await Task.sleep(for: .milliseconds(200))
+    await waitUntil { store.hasLoaded }
     #expect(store.inbox.count == 8)
     network.yield(false)
-    try await Task.sleep(for: .milliseconds(50))
+    await waitUntil { store.issue == .offline }
     #expect(store.issue == .offline)
     store.markRead(["101"])
-    try await Task.sleep(for: .milliseconds(100))
+    await store.flushPending()
     #expect(store.pending.count == 1)
     #expect(requests("PATCH").isEmpty)
     network.yield(true)
-    try await Task.sleep(for: .milliseconds(200))
+    await waitUntil { store.issue == nil }
+    await store.flushPending()
     #expect(store.pending.isEmpty)
     #expect(requests("PATCH") == ["/notifications/threads/101"])
     #expect(store.issue == nil)
