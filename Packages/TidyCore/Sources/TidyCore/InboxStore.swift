@@ -540,9 +540,10 @@ public final class InboxStore {
   }
 
   private func commit(_ id: UUID) async {
-    inFlightCommits[id] = commitTasks.removeValue(forKey: id)
-    defer { inFlightCommits[id] = nil }
+    let task = commitTasks.removeValue(forKey: id)
     guard let client, isOnline, let index = pending.firstIndex(where: { $0.id == id }) else { return }
+    inFlightCommits[id] = task
+    defer { inFlightCommits[id] = nil }
     if undoableChange?.id == id { undoableChange = nil }
     let change = pending.remove(at: index)
     save(pending, as: "pending.json")
