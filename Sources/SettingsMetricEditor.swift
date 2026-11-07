@@ -45,8 +45,10 @@ struct MetricEditor: View {
             Form {
                 Section {
                     TextField("Title", text: $title, prompt: Text("PRs to review"))
-                    TextField("Filter", text: $filter, prompt: Text("is:pr is:open review-requested:@me"))
-                        .font(.body.monospaced())
+                    TextField(text: $filter, prompt: Text("is:pr is:open review-requested:@me")) {
+                        Text("Filter").font(.body)
+                    }
+                    .font(.body.monospaced())
                     Picker("Scope", selection: $scope) {
                         Text("Everywhere").tag(ScopeKind.everywhere)
                         Text("Organization").tag(ScopeKind.organization)
