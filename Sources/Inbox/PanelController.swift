@@ -36,9 +36,7 @@ final class PanelController {
         isOpen = true
         if quickLookID != nil, let closedAt, let delay = AppSettings.shared.returnToListAfter.seconds,
            Date.now.timeIntervalSince(closedAt) >= delay {
-            var transaction = Transaction()
-            transaction.disablesAnimations = true
-            withTransaction(transaction) { quickLookID = nil }
+            withTransaction(\.disablesAnimations, true) { quickLookID = nil }
         }
         closedAt = nil
     }
