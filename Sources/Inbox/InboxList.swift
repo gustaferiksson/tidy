@@ -101,10 +101,23 @@ struct InboxList: View {
 
     @ViewBuilder private var emptyState: some View {
         if let metric = store.metrics.first(where: { $0.id == store.scope.metric }) {
-            ContentUnavailableView {
-                Label("No notifications match \(metric.title)", systemImage: "line.3.horizontal.decrease.circle")
-            } actions: {
-                Button("Clear Filter") { store.scope = InboxScope() }
+            let result = store.metricResults[metric.id]
+            if result == nil {
+                ProgressView()
+            } else if case .failure(let error)? = result {
+                ContentUnavailableView {
+                    Label(error.message, systemImage: "exclamationmark.triangle")
+                } description: {
+                    Text("Couldn't search for \(metric.title).")
+                } actions: {
+                    Button("Clear Filter") { store.scope = InboxScope() }
+                }
+            } else {
+                ContentUnavailableView {
+                    Label("No notifications match \(metric.title)", systemImage: "line.3.horizontal.decrease.circle")
+                } actions: {
+                    Button("Clear Filter") { store.scope = InboxScope() }
+                }
             }
         } else if let repository = store.scope.repository {
             ContentUnavailableView {
