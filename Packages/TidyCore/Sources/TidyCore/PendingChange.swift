@@ -78,16 +78,9 @@ public struct InboxScope: Hashable, Sendable {
   public var isActive: Bool { participatingOnly || repository != nil }
 
   public func contains(_ item: InboxItem) -> Bool {
-    (!participatingOnly || item.thread.reason.group == .participating)
+    (!participatingOnly || item.thread.reason?.group == .participating)
       && (repository.map { $0 == item.thread.repository.fullName } ?? true)
   }
-}
-
-public struct SearchRow: Hashable, Sendable, Identifiable {
-  public let result: SearchItem
-  public let thread: InboxItem?
-
-  public var id: String { thread?.id ?? result.id }
 }
 
 public enum SyncIssue: Hashable, Sendable {

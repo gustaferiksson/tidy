@@ -41,8 +41,8 @@ Network loss pauses polling and sets `issue = .offline`; reconnect resumes polli
 | Property | Meaning |
 |---|---|
 | `inbox: [InboxItem]` | Every thread not archived, newest `updatedAt` first, filters not applied |
-| `visibleItems: [InboxItem]` | `inbox` after `scope` and hide rules (hidden rows included while `showsHidden`). With a metric in `scope`: the threads among `metricRows`, hide rules ignored. Unread Only is the app's own `filter(\.isUnread)` |
-| `metricRows: [SearchRow]` | The active metric's search results in GitHub's order (`updated` desc), each with its inbox thread when one has the same repo#number |
+| `visibleItems: [InboxItem]` | `inbox` after `scope` and hide rules (hidden rows included while `showsHidden`). With a metric in `scope`: `metricRows`, hide rules ignored. Unread Only is the app's own `filter(\.isUnread)` |
+| `metricRows: [InboxItem]` | The active metric's search results in GitHub's order (`updated` desc): the inbox item when one has the same repo#number, else a search-only item (id `owner/repo#N`, `reason` nil, read, details loaded from the search result). Search-only items never enter `inbox`, `pending` or banners |
 | `unreadCount: Int` | Menu bar count: unread, not hidden by a rule. Ignores `scope`. Rows whose author/state rule is still waiting for subject data count (they are visible too), so the count can drop once the data arrives |
 | `hiddenCount: Int` | Footer "N hidden by filters" |
 | `showsHidden: Bool` (settable) | Footer "Show" |
@@ -68,7 +68,7 @@ All are synchronous and optimistic: state changes at once, the GitHub call goes 
 | Method | Local effect | GitHub call |
 |---|---|---|
 | `markRead(_ ids: [String])` | Rows turn read | `PATCH` per unread thread |
-| `markRead(opening id: String)` | Quick Look was opened (not peeked): the row turns read. Sent at once, never undoable, leaves `undoableChange` alone | `PATCH` if unread, else none |
+| `markRead(opening id: String)` | Quick Look was opened (not peeked): the row turns read. Sent at once, never undoable, leaves `undoableChange` alone. No-op for a search-only metric row | `PATCH` if unread, else none |
 | `markDone(_ ids: [String])` | Rows leave `inbox` (archive). Undo puts them back | `DELETE` per thread, 4 at a time |
 | `markAllRead()` | Rows turn read (never rows hidden by a rule, even while `showsHidden`). After a `PUT`, rows stay read locally until a poll shows them read or with newer activity, since GitHub may answer 202 and apply it later | `PUT /notifications` (no scope, nothing hidden), `PUT /repos/{o}/{r}/notifications` (repo scope), or `PATCH` per visible unread thread (Participating Only or hide rules hiding something) |
 | `muteThread(_ id: String)` | Row leaves `inbox`, like Done | `PUT …/subscription {ignored: true}` then `DELETE`; adds to `muted` on success |
@@ -78,7 +78,7 @@ All are synchronous and optimistic: state changes at once, the GitHub call goes 
 | `retryFailed()` | Re-applies failed changes and sends them now | as above |
 | `dismissFailure()` | Clears `failure` | none |
 | `loadDetails(for id: String)` | Quick Look Retry: refetches subject data | `GET subject.url` etc. |
-| `loadThreadDetails(for id: String)` | Quick Look opened or stepped to a thread: fetches its rich details unless already loaded or loading for the same `updatedAt` (a `.failed` entry refetches, so it is also Retry). No-op for kinds `ThreadDetails.isSupported` rejects. Never called by polling | One `POST /graphql` |
+| `loadThreadDetails(for id: String)` | Quick Look opened or stepped to a thread: fetches its rich details unless already loaded or loading for the same `updatedAt` (a `.failed` entry refetches, so it is also Retry). Also works for search-only `metricRows`. No-op for kinds `ThreadDetails.isSupported` rejects. Never called by polling | One `POST /graphql` |
 
 ### Thread details (Quick Look only)
 
@@ -133,7 +133,7 @@ The store already applies: baseline-only first fetch after launch or token chang
 
 ## Models
 
-- `NotificationThread`: `id`, `reason: Reason`, `unread`, `updatedAt`, `lastReadAt?`, `subject: Subject`, `repository: Repository`, `number?`, `ciState?`.
+- `NotificationThread`: `id`, `reason: Reason?` (nil only for search-only metric rows), `unread`, `updatedAt`, `lastReadAt?`, `subject: Subject`, `repository: Repository`, `number?`, `ciState?`.
 - `Subject`: `title`, `kind: SubjectKind`, `url?`, `latestCommentURL?`.
 - `Repository`: `fullName`, `owner: GitHubUser`, `isPrivate`, `htmlURL`.
 - `GitHubUser`: `login`, `avatarURL?`. `GitHubAccount`: `user`, `scopes`.

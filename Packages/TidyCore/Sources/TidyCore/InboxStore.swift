@@ -114,16 +114,38 @@ public final class InboxStore {
   }
 
   public var visibleItems: [InboxItem] {
-    guard scope.metric == nil else { return metricRows.compactMap(\.thread) }
+    guard scope.metric == nil else { return metricRows }
     return inbox.filter { scope.contains($0) && (showsHidden || !rules.outcome(for: $0).hides) }
   }
 
-  public var metricRows: [SearchRow] {
+  public var metricRows: [InboxItem] {
     guard let metric = scope.metric, case .success(let result) = metricResults[metric] else { return [] }
     let threads = Dictionary(
       inbox.compactMap { item in item.thread.number.map { ("\(item.thread.repository.fullName)#\($0)", item) } }
     ) { first, _ in first }
-    return result.items.map { SearchRow(result: $0, thread: threads[$0.id]) }
+    return result.items.map { found in
+      if let thread = threads[found.id] { return thread }
+      let segment = found.kind == .pullRequest ? "pulls" : "issues"
+      let thread = NotificationThread(
+        id: found.id,
+        reason: nil,
+        unread: false,
+        updatedAt: found.updatedAt,
+        subject: Subject(
+          title: found.title,
+          kind: found.kind,
+          url: GitHubClient.defaultBaseURL.appending(path: "repos/\(found.repository)/\(segment)/\(found.number)")
+        ),
+        repository: Repository(
+          fullName: found.repository,
+          owner: GitHubUser(login: String(found.repository.prefix { $0 != "/" })),
+          isPrivate: false,
+          htmlURL: URL(string: "https://github.com")!.appending(path: found.repository)
+        )
+      )
+      let details = SubjectDetails(state: found.state, author: found.author.map { GitHubUser(login: $0) }, htmlURL: found.htmlURL)
+      return InboxItem(thread: thread, status: .loaded(details))
+    }
   }
 
   public var hiddenCount: Int { inbox.count { rules.outcome(for: $0).hides } }
@@ -253,10 +275,11 @@ public final class InboxStore {
   }
 
   public func loadThreadDetails(for id: String) {
-    guard let item = inbox.first(where: { $0.id == id }), ThreadDetails.isSupported(item.thread) else { return }
+    let known = inbox + metricRows
+    guard let item = known.first(where: { $0.id == id }), ThreadDetails.isSupported(item.thread) else { return }
     if let status = threadDetails(for: item), status != .failed { return }
     let updatedAt = item.thread.updatedAt
-    threadDetailsCache = threadDetailsCache.filter { key, _ in inbox.contains { $0.id == key } }
+    threadDetailsCache = threadDetailsCache.filter { key, _ in known.contains { $0.id == key } }
     guard let client else {
       threadDetailsCache[id] = (updatedAt, .failed)
       return
@@ -284,6 +307,7 @@ public final class InboxStore {
   }
 
   public func markRead(opening id: String) {
+    guard !metricRows.contains(where: { $0.id == id && $0.thread.reason == nil }) else { return }
     guard inbox.contains(where: { $0.id == id }) else {
       deferred[id] = .markRead
       return
@@ -490,7 +514,7 @@ public final class InboxStore {
     }
     self.baseline = max(baseline, newest ?? baseline)
     let candidates = inbox.filter {
-      $0.thread.updatedAt > baseline && $0.isUnread && !silencedReasons.contains($0.thread.reason)
+      $0.thread.updatedAt > baseline && $0.isUnread && $0.thread.reason.map(silencedReasons.contains) != true
     }.map(\.id)
     guard !candidates.isEmpty else {
       runRuleActions()

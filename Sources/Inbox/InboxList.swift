@@ -51,30 +51,27 @@ struct InboxList: View {
             }
             .onKeyPress(.return, phases: .down) { press in
                 if press.modifiers.isDisjoint(with: [.command, .shift, .control, .option]) {
-                    if let result = store.metricRows.first(where: { $0.thread == nil && panel.selection == [$0.id] })?.result {
-                        if result.htmlURL.isGitHubWeb { NSWorkspace.shared.open(result.htmlURL) }
-                        return .handled
-                    }
                     guard selected.count == 1, let id = selected.first?.id else { return .ignored }
                     panel.showDetails(id)
                     return .handled
                 }
                 guard press.modifiers.contains(.command), !selected.isEmpty, selected.count <= Self.openLimit else { return .ignored }
                 for item in selected where item.webURL.isGitHubWeb { NSWorkspace.shared.open(item.webURL) }
-                if !press.modifiers.contains(.option) { store.markRead(selected.map(\.id)) }
+                if !press.modifiers.contains(.option) { store.markRead(selected.filter { $0.thread.reason != nil }.map(\.id)) }
                 return .handled
             }
             .onKeyPress(phases: [.down, .repeat]) { _ in
-                guard !selected.isEmpty,
+                let ids = selected.filter { $0.thread.reason != nil }.map(\.id)
+                guard !ids.isEmpty,
                       let shortcut = NSApp.currentEvent.flatMap(KeyShortcut.init(event:)),
                       let action = settings.shortcuts.action(for: shortcut)
                 else { return .ignored }
                 if action == .markRead {
-                    store.markRead(selected.map(\.id))
+                    store.markRead(ids)
                 } else if action == .done {
-                    dismissSelected { store.markDone($0) }
+                    dismissSelected { store.markDone(ids) }
                 } else {
-                    dismissSelected { ids in for id in ids { store.muteThread(id) } }
+                    dismissSelected { for id in ids { store.muteThread(id) } }
                 }
                 return .handled
             }
@@ -85,26 +82,12 @@ struct InboxList: View {
         @Bindable var panel = panel
         return TimelineView(.everyMinute) { context in
             List(selection: $panel.selection) {
-                if store.scope.metric == nil {
-                    ForEach(items) { item in
-                        InboxRow(item: item, now: context.date)
-                            .listRowInsets(EdgeInsets())
-                            .listRowSeparator(.hidden)
-                    }
-                } else {
-                    ForEach(store.metricRows) { row in
-                        Group {
-                            if let thread = row.thread {
-                                InboxRow(item: thread, now: context.date)
-                            } else {
-                                SearchResultRow(result: row.result, now: context.date)
-                            }
-                        }
+                ForEach(items) { item in
+                    InboxRow(item: item, now: context.date)
                         .listRowInsets(EdgeInsets())
                         .listRowSeparator(.hidden)
-                    }
-                    shortfall
                 }
+                shortfall
             }
             .listStyle(.inset)
             .scrollContentBackground(.hidden)
@@ -114,7 +97,7 @@ struct InboxList: View {
     }
 
     private var order: [String] {
-        store.scope.metric == nil ? items.map(\.id) : store.metricRows.map(\.id)
+        items.map(\.id)
     }
 
     @ViewBuilder private var shortfall: some View {
@@ -175,41 +158,44 @@ struct InboxList: View {
         }
     }
 
-    private func dismissSelected(_ apply: ([String]) -> Void) {
+    private func dismissSelected(_ apply: () -> Void) {
         let lastIndex = items.lastIndex { panel.selection.contains($0.id) }
         let next = lastIndex.flatMap { items[($0 + 1)...].first { !panel.selection.contains($0.id) } }
-        apply(selected.map(\.id))
+        apply()
         panel.selection = next.map { [$0.id] } ?? []
     }
 
     @ViewBuilder private func contextMenu(for ids: Set<String>) -> some View {
         let targets = items.filter { ids.contains($0.id) }
+        let notifications = targets.filter { $0.thread.reason != nil }
         if !targets.isEmpty {
             Button("Quick Look") { targets.first.map { panel.showDetails($0.id) } }
                 .disabled(targets.count != 1)
             Button("Open on GitHub") {
                 for item in targets where item.webURL.isGitHubWeb { NSWorkspace.shared.open(item.webURL) }
-                store.markRead(targets.map(\.id))
+                store.markRead(notifications.map(\.id))
             }
             .disabled(targets.count > Self.openLimit)
             Button("Copy Link") {
                 NSPasteboard.general.clearContents()
                 NSPasteboard.general.setString(targets.map(\.webURL.absoluteString).joined(separator: "\n"), forType: .string)
             }
+        }
+        if !notifications.isEmpty {
             Divider()
-            if targets.contains(where: \.isUnread) {
-                Button("Mark as Read") { store.markRead(targets.map(\.id)) }
+            if notifications.contains(where: \.isUnread) {
+                Button("Mark as Read") { store.markRead(notifications.map(\.id)) }
                     .keyboardShortcut(settings.shortcuts[.markRead]?.keyboardShortcut)
             }
-            Button("Done") { store.markDone(targets.map(\.id)) }
+            Button("Done") { store.markDone(notifications.map(\.id)) }
                 .keyboardShortcut(settings.shortcuts[.done]?.keyboardShortcut)
             Divider()
             Button("Mute Thread") {
-                for item in targets { store.muteThread(item.id) }
+                for item in notifications { store.muteThread(item.id) }
             }
             .keyboardShortcut(settings.shortcuts[.muteThread]?.keyboardShortcut)
             Button("Mute Repository") {
-                for repository in Set(targets.map(\.thread.repository.fullName)) { store.muteRepository(repository) }
+                for repository in Set(notifications.map(\.thread.repository.fullName)) { store.muteRepository(repository) }
             }
         }
     }

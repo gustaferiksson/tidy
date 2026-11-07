@@ -63,7 +63,7 @@ struct QuickLookView: View {
             return .handled
         }
         .onKeyPress(phases: [.down, .repeat]) { _ in
-            guard let item,
+            guard let item, item.thread.reason != nil,
                   let shortcut = NSApp.currentEvent.flatMap(KeyShortcut.init(event:)),
                   let action = settings.shortcuts.action(for: shortcut)
             else { return .ignored }
@@ -79,7 +79,7 @@ struct QuickLookView: View {
     }
 
     private var item: InboxItem? {
-        store.inbox.first { $0.id == id }
+        store.inbox.first { $0.id == id } ?? order.first { $0.id == id }
     }
 
     private func details(of item: InboxItem) -> some View {
@@ -97,7 +97,7 @@ struct QuickLookView: View {
             item.author.map { "by \($0.login)" },
             commenter.flatMap { $0 == item.author?.login ? nil : "last comment by \($0)" },
         ].compactMap(\.self).joined(separator: ", ")
-        let context = [people.isEmpty ? nil : people, item.thread.reason.title].compactMap(\.self).joined(separator: " · ")
+        let context = [people.isEmpty ? nil : people, item.thread.reason?.title].compactMap(\.self).joined(separator: " · ")
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 4) {
                 StateGlyphView(glyph: glyph)
@@ -161,20 +161,24 @@ struct QuickLookView: View {
             Button("Open on GitHub") { open(item, markingRead: true) }
                 .buttonStyle(.borderedProminent)
                 .keyboardShortcut(.defaultAction)
-            Button("Mark as Read") { store.markRead([item.id]) }
-                .disabled(!item.isUnread)
-                .help(settings.shortcuts[.markRead].map { "Mark as Read (\($0.displayString))" } ?? "Mark as Read")
-            Button("Done") { markDone(item) }
-                .help(settings.shortcuts[.done].map { "Done (\($0.displayString))" } ?? "Done")
+            if item.thread.reason != nil {
+                Button("Mark as Read") { store.markRead([item.id]) }
+                    .disabled(!item.isUnread)
+                    .help(settings.shortcuts[.markRead].map { "Mark as Read (\($0.displayString))" } ?? "Mark as Read")
+                Button("Done") { markDone(item) }
+                    .help(settings.shortcuts[.done].map { "Done (\($0.displayString))" } ?? "Done")
+            }
             Spacer(minLength: 0)
             Menu {
                 Button("Copy Link") {
                     NSPasteboard.general.clearContents()
                     NSPasteboard.general.setString(item.webURL.absoluteString, forType: .string)
                 }
-                Divider()
-                Button("Mute Thread") { muteThread(item) }
-                Button("Mute Repository") { store.muteRepository(item.thread.repository.fullName) }
+                if item.thread.reason != nil {
+                    Divider()
+                    Button("Mute Thread") { muteThread(item) }
+                    Button("Mute Repository") { store.muteRepository(item.thread.repository.fullName) }
+                }
             } label: {
                 Image(systemName: "ellipsis.circle")
             }
@@ -198,7 +202,7 @@ struct QuickLookView: View {
 
     private func open(_ item: InboxItem, markingRead: Bool) {
         if item.webURL.isGitHubWeb { NSWorkspace.shared.open(item.webURL) }
-        if markingRead { store.markRead([item.id]) }
+        if markingRead, item.thread.reason != nil { store.markRead([item.id]) }
     }
 
     private func markDone(_ item: InboxItem) {

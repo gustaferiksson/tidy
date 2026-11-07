@@ -2,7 +2,7 @@ import Foundation
 
 public struct NotificationThread: Codable, Hashable, Sendable, Identifiable {
   public let id: String
-  public var reason: Reason
+  public var reason: Reason?
   public var unread: Bool
   public var updatedAt: Date
   public var lastReadAt: Date?
@@ -11,7 +11,7 @@ public struct NotificationThread: Codable, Hashable, Sendable, Identifiable {
 
   public init(
     id: String,
-    reason: Reason,
+    reason: Reason?,
     unread: Bool,
     updatedAt: Date,
     lastReadAt: Date? = nil,
