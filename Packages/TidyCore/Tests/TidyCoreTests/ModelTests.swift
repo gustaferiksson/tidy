@@ -32,9 +32,9 @@ struct ModelTests {
 
   @Test func keepsUnknownReasonsAndKinds() throws {
     let unknown = Fixture.thread("106")
-    #expect(unknown.reason.rawValue == "brand_new_reason")
-    #expect(unknown.reason.title == "Brand new reason")
-    #expect(unknown.reason.group == .participating)
+    #expect(unknown.reason?.rawValue == "brand_new_reason")
+    #expect(unknown.reason?.title == "Brand new reason")
+    #expect(unknown.reason?.group == .participating)
     let roundTrip = try GitHubClient.decoder.decode(
       NotificationThread.self, from: GitHubClient.encoder.encode(unknown))
     #expect(roundTrip == unknown)

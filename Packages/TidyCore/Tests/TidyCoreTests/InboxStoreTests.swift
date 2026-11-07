@@ -629,7 +629,7 @@ struct InboxStoreTests {
     store.scope.metric = metric.id
     #expect(store.scope == InboxScope(metric: metric.id))
     #expect(store.metricRows.map(\.id) == ["101", "octo/web#3", "102"])
-    #expect(store.visibleItems.map(\.id) == ["101", "102"])
+    #expect(store.visibleItems.map(\.id) == ["101", "octo/web#3", "102"])
     store.markAllRead()
     await store.flushPending()
     #expect(requests("PATCH") == ["/notifications/threads/101"])
@@ -647,6 +647,39 @@ struct InboxStoreTests {
     store.scope.metric = store.metrics[0].id
     store.scope.repository = "octo/app"
     #expect(store.scope == InboxScope(repository: "octo/app"))
+  }
+
+  @Test func searchOnlyRowLoadsDetailsButNeverReachesNotificationActions() async throws {
+    server.on("POST", "/graphql", respond: .json("graphql_pull"))
+    let store = makeStore()
+    await store.refresh()
+    await waitUntil { store.metricResults.count == 3 }
+    store.scope.metric = store.metrics[0].id
+    let item = try #require(store.metricRows.first { $0.id == "octo/web#3" })
+    #expect(item.thread.reason == nil)
+    #expect(item.thread.number == 3)
+    #expect(item.webURL == URL(string: "https://github.com/octo/web/pull/3"))
+    #expect(item.state == .merged)
+    #expect(item.author?.login == "hubot")
+
+    store.loadThreadDetails(for: item.id)
+    await waitUntil { store.threadDetails(for: item).map { $0 != .loading } ?? false }
+    #expect(store.threadDetails(for: item)?.details != nil)
+    let queried = server.requests.compactMap { $0.path == "/graphql" ? $0.json?["variables"] as? [String: Any] : nil }
+    #expect(queried.contains { $0["owner"] as? String == "octo" && $0["name"] as? String == "web" && $0["number"] as? Int == 3 })
+
+    store.markRead(opening: item.id)
+    store.markRead([item.id])
+    store.markDone([item.id])
+    store.muteThread(item.id)
+    store.markAllRead()
+    await store.flushPending()
+    await store.refresh()
+    await store.flushPending()
+    #expect(store.pending.isEmpty)
+    #expect(!store.inbox.contains { $0.id == item.id })
+    #expect(requests("PATCH") == ["/notifications/threads/101"])
+    #expect(requests("DELETE").isEmpty && requests("PUT").isEmpty)
   }
 
   @Test func failedMetricStaysOnItsTile() async {

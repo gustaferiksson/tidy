@@ -53,7 +53,8 @@ enum InboxSnapshot {
             ("quicklookdraft", populated, "5", nil),
             ("security", populated, "3", nil),
             ("filtered", filtered, nil, "2"),
-            ("metric", measured, nil, nil),
+            ("metric", measured, nil, "1"),
+            ("metricquicklook", measured, "acme/web#327", nil),
             ("empty", empty, nil, nil),
             ("firstrun", makeStore(.signedOut), nil, nil),
         ]
@@ -64,7 +65,7 @@ enum InboxSnapshot {
                 panel.showDetails(quickLookID)
                 store.loadThreadDetails(for: quickLookID)
                 for _ in 0..<100 {
-                    guard let item = store.inbox.first(where: { $0.id == quickLookID }), store.threadDetails(for: item) == .loading else { break }
+                    guard let item = store.visibleItems.first(where: { $0.id == quickLookID }), store.threadDetails(for: item) == .loading else { break }
                     try? await Task.sleep(for: .milliseconds(20))
                 }
             }
@@ -328,6 +329,26 @@ private enum FixtureData {
                 commit("c40f2d8", "gustaf", "Wrap at the ends of the list instead of stopping", 190),
                 event("HeadRefDeletedEvent", "sam", 170, ["headRefName": "gustaf/old-stepping"]),
             ])) { $1 }
+        } else if number == 327 {
+            node = [
+                "kind": "PullRequest", "author": who("sam"), "createdAt": minutes(600), "url": "https://github.com/acme/web/pull/327",
+                "body": "Opens the release notes in a sheet after the updater relaunches.",
+                "labels": ["nodes": [["name": "updater", "color": "1d76db"]]],
+                "assignees": ["nodes": []],
+                "baseRefName": "main", "headRefName": "sam/release-notes",
+                "additions": 86, "deletions": 12, "changedFiles": 3, "mergeable": "MERGEABLE", "reviewDecision": "REVIEW_REQUIRED",
+                "latestReviews": ["nodes": [["state": "COMMENTED", "author": who("mira")]]],
+                "reviewRequests": ["nodes": [["requestedReviewer": who("gustaf")]]],
+                "commits": ["nodes": [["commit": ["statusCheckRollup": ["state": "SUCCESS", "contexts": ["nodes": [
+                    ["name": "build", "status": "COMPLETED", "conclusion": "SUCCESS"],
+                    ["name": "test", "status": "COMPLETED", "conclusion": "SUCCESS"],
+                ]]]]]]],
+            ].merging(conversation(1, [
+                comment("pullrequestreview-31", "mira", "Can the sheet remember that it was dismissed?", 90, "COMMENTED"),
+            ], [
+                commit("a1b2c3d", "sam", "Show the release notes after relaunching", 590),
+                event("ReviewRequestedEvent", "sam", 580, ["requestedReviewer": who("gustaf")]),
+            ])) { $1 }
         } else {
             return nil
         }
@@ -368,7 +389,7 @@ private enum FixtureData {
         let found: [(repository: String, number: Int, title: String, segment: String, author: String, draft: Bool, minutesAgo: Double)] = [
             ("tinecli/tidy", 42, "Adopt Liquid Glass in the inbox panel", "pull", "mira", false, 4),
             ("acme/web", 327, "Show the release notes after an update", "pull", "sam", true, 75),
-            ("acme/api", 219, "Rate limit headers are ignored on retries", "issues", "pat", false, 1_300),
+            ("acme/api", 1181, "Rate limit headers are ignored on retries", "issues", "pat", false, 1_300),
         ]
         let results = found.map { result -> [String: Any] in
             let item: [String: Any] = [

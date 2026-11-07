@@ -10,7 +10,7 @@ struct InboxRow: View {
     @Environment(\.backgroundProminence) private var prominence
     @State private var ageWidth: CGFloat = 0
 
-    private var isHovered: Bool { panel.hoveredID == item.id }
+    private var showsHoverButtons: Bool { panel.hoveredID == item.id && item.thread.reason != nil }
     private let buttonSize: CGFloat = 24
 
     var body: some View {
@@ -39,7 +39,7 @@ struct InboxRow: View {
                         .foregroundStyle(prominence == .increased ? Color.white : .secondary)
                         .fixedSize()
                         .onGeometryChange(for: CGFloat.self, of: \.size.width) { ageWidth = $0 }
-                        .opacity(isHovered ? 0 : 1)
+                        .opacity(showsHoverButtons ? 0 : 1)
                 }
                 HStack(spacing: 0) {
                     Text(repository)
@@ -62,13 +62,13 @@ struct InboxRow: View {
             panel.showDetails(item.id)
         })
         .overlay(alignment: .trailingFirstTextBaseline) {
-            if isHovered {
+            if showsHoverButtons {
                 hoverButtons
                     .alignmentGuide(.firstTextBaseline) { $0[VerticalAlignment.center] + 4 }
                     .transition(.opacity)
             }
         }
-        .animation(.easeOut(duration: 0.15), value: isHovered)
+        .animation(.easeOut(duration: 0.15), value: showsHoverButtons)
         .onHover { hovering in
             if hovering {
                 panel.hoveredID = item.id
@@ -83,13 +83,15 @@ struct InboxRow: View {
             }
         }
         .swipeActions(edge: .trailing) {
-            Button("Done", systemImage: "checkmark") { store.markDone([item.id]) }
-                .tint(.green)
+            if item.thread.reason != nil {
+                Button("Done", systemImage: "checkmark") { store.markDone([item.id]) }
+                    .tint(.green)
+            }
         }
     }
 
     private var titleMask: some View {
-        let covered = isHovered ? max(0, buttonSize - ageWidth - 8) : 0
+        let covered = showsHoverButtons ? max(0, buttonSize - ageWidth - 8) : 0
         return HStack(spacing: 0) {
             Color.black
             LinearGradient(colors: [.black, .clear], startPoint: .leading, endPoint: .trailing)
@@ -106,7 +108,7 @@ struct InboxRow: View {
     private var meta: String {
         let severity = item.thread.subject.kind.isSecurity ? item.severity?.title : nil
         let state = differentiateWithoutColor ? item.state?.title : nil
-        return [item.thread.reason.title, severity, state]
+        return [item.thread.reason?.title ?? item.author?.login, severity, state]
             .compactMap(\.self)
             .map { " · " + $0 }
             .joined()

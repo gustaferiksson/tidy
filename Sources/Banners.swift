@@ -62,7 +62,7 @@ final class Banners: NSObject {
         guard case .newThread(let item) = event else { return }
         let repository = item.thread.repository.fullName
         content.title = item.title
-        content.subtitle = "\(repository) · \(item.thread.reason.title)"
+        content.subtitle = [repository, item.thread.reason?.title].compactMap(\.self).joined(separator: " · ")
         if let activity = item.activity {
             let note = MarkdownView.plainFirstLine(of: activity.detail ?? "")
             content.body = note.isEmpty ? activity.headline : "\(activity.headline): \(note)"
