@@ -17,6 +17,9 @@ struct SettingsView: View {
             Tab("Filters", systemImage: "line.3.horizontal.decrease.circle", value: .filters) {
                 FilterSettings()
             }
+            Tab("Metrics", systemImage: "chart.bar.xaxis", value: .metrics) {
+                MetricSettings(settings: settings)
+            }
             Tab("Keyboard", systemImage: "keyboard", value: .keyboard) {
                 KeyboardSettings(settings: settings)
             }

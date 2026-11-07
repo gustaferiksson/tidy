@@ -39,6 +39,9 @@ enum InboxSnapshot {
         filtered.markDone(["10"])
         filtered.scope.repository = "tinecli/tidy"
         filtered.markDone(["6"])
+        let measured = makeStore(.populated)
+        await load(measured)
+        measured.scope.metric = measured.metrics.first?.id
         let empty = makeStore(.empty)
         await load(empty)
         let scenarios: [(String, InboxStore, String?, String?)] = [
@@ -50,6 +53,7 @@ enum InboxSnapshot {
             ("quicklookdraft", populated, "5", nil),
             ("security", populated, "3", nil),
             ("filtered", filtered, nil, "2"),
+            ("metric", measured, nil, nil),
             ("empty", empty, nil, nil),
             ("firstrun", makeStore(.signedOut), nil, nil),
         ]
@@ -90,7 +94,7 @@ enum InboxSnapshot {
 
     private static func load(_ store: InboxStore) async {
         await store.refresh()
-        for _ in 0..<100 where store.inbox.contains(where: { $0.status == .loading }) {
+        for _ in 0..<100 where store.inbox.contains(where: { $0.status == .loading }) || store.metricResults.count < store.metrics.count {
             try? await Task.sleep(for: .milliseconds(20))
         }
     }
@@ -361,6 +365,10 @@ private enum FixtureData {
             ]
         }
         routes["/notifications"] = try? JSONSerialization.data(withJSONObject: threads)
+        let reviews = entries.filter { $0.reason == "review_requested" && $0.number != nil }.map { entry in
+            ["repository_url": "\(api)/repos/\(entry.repository)", "number": entry.number ?? 0] as [String: Any]
+        }
+        routes["/search/issues"] = try? JSONSerialization.data(withJSONObject: ["total_count": reviews.count + 4, "incomplete_results": false, "items": reviews])
         routes["/repos/acme/api/dependabot/alerts"] = try? JSONSerialization.data(withJSONObject: alerts)
         return routes
     }()

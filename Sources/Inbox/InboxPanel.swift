@@ -8,12 +8,16 @@ struct InboxPanel: View {
     @Environment(PanelController.self) private var panel
     @Environment(AppUpdater.self) private var updater
     @AppStorage("showsAllThreads") private var showsAll = false
+    private let settings = AppSettings.shared
 
     var body: some View {
         @Bindable var panel = panel
         NavigationStack {
             VStack(spacing: 0) {
                 header
+                if store.isSignedIn && settings.showsMetrics && !store.metrics.isEmpty {
+                    MetricStrip(style: settings.metricStyle, layout: settings.metricLayout)
+                }
                 if store.scope.isActive { filterChips }
                 Divider()
                 content
@@ -45,7 +49,7 @@ struct InboxPanel: View {
     }
 
     private var items: [InboxItem] {
-        showsAll ? store.visibleItems : store.visibleItems.filter { $0.isUnread || $0.id == panel.quickLookID || panel.openedIDs.contains($0.id) }
+        showsAll || store.scope.metric != nil ? store.visibleItems : store.visibleItems.filter { $0.isUnread || $0.id == panel.quickLookID || panel.openedIDs.contains($0.id) }
     }
 
     private var header: some View {
@@ -130,6 +134,9 @@ struct InboxPanel: View {
             }
             if let repository = store.scope.repository {
                 FilterChip(title: repository) { store.scope.repository = nil }
+            }
+            if let metric = store.metrics.first(where: { $0.id == store.scope.metric }) {
+                FilterChip(title: metric.title) { store.scope.metric = nil }
             }
             Spacer(minLength: 0)
         }

@@ -100,7 +100,13 @@ struct InboxList: View {
     }
 
     @ViewBuilder private var emptyState: some View {
-        if let repository = store.scope.repository {
+        if let metric = store.metrics.first(where: { $0.id == store.scope.metric }) {
+            ContentUnavailableView {
+                Label("No notifications match \(metric.title)", systemImage: "line.3.horizontal.decrease.circle")
+            } actions: {
+                Button("Clear Filter") { store.scope = InboxScope() }
+            }
+        } else if let repository = store.scope.repository {
             ContentUnavailableView {
                 Label(showsAll ? "Nothing in \(repository)" : "No unread in \(repository)", systemImage: "line.3.horizontal.decrease.circle")
             } actions: {
