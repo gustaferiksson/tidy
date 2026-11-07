@@ -34,7 +34,6 @@ public struct SearchItem: Decodable, Hashable, Sendable, Identifiable {
   public let updatedAt: Date
 
   public var id: String { "\(repository)#\(number)" }
-  public var glyph: StateGlyph { StateGlyph(kind: kind, state: state) }
 
   private enum CodingKeys: String, CodingKey {
     case number, title, state, draft, user
