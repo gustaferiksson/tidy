@@ -138,6 +138,36 @@ struct GitHubClientTests {
     await #expect(throws: GitHubError.decoding) { try await server.client.notifications(since: since, ifModifiedSince: nil) }
   }
 
+  @Test func searchesIssuesAndBuildsKeys() async throws {
+    let server = StubServer()
+    server.on("GET", "/search/issues", respond: .json("search"))
+    let result = try await server.client.search("org:octo is:pr is:open review-requested:@me")
+    #expect(result.totalCount == 57)
+    #expect(result.keys == ["octo/app#42", "octo/app#7", "octo/web#3"])
+    let request = try #require(server.requests.first)
+    let query = URLComponents(url: request.url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+    #expect(query.contains(URLQueryItem(name: "q", value: "org:octo is:pr is:open review-requested:@me")))
+    #expect(query.contains(URLQueryItem(name: "per_page", value: "100")))
+  }
+
+  @Test func searchKeepsPlusSignsLiteral() async throws {
+    let server = StubServer()
+    server.on("GET", "/search/issues", respond: .json("search"))
+    _ = try await server.client.search("is:pr language:c++ label:\"needs review\"")
+    let request = try #require(server.requests.first)
+    let query = URLComponents(url: request.url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+    #expect(query.first { $0.name == "q" }?.value == "is:pr language:c++ label:\"needs review\"")
+    #expect(request.url.query(percentEncoded: true)?.contains("c%2B%2B") == true)
+  }
+
+  @Test func rejectedSearchIsNotARateLimit() async {
+    let server = StubServer()
+    server.on("GET", "/search/issues", respond: StubResponse(status: 422))
+    await #expect(throws: GitHubError.invalidSearch) { try await server.client.search("is:pr bogus:") }
+    server.on("GET", "/search/issues", respond: StubResponse(status: 403, headers: ["X-RateLimit-Remaining": "0", "X-RateLimit-Resource": "search", "X-RateLimit-Reset": "1790003600"]))
+    await #expect(throws: GitHubError.rateLimited(resetsAt: Date(timeIntervalSince1970: 1_790_003_600))) { try await server.client.search("is:pr") }
+  }
+
   @Test func reusesCachedBodyOnETagMatch() async throws {
     let server = StubServer()
     let cache = ResponseCache(directory: FileManager.default.temporaryDirectory.appending(path: UUID().uuidString))

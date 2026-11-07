@@ -21,11 +21,27 @@ public final class InboxStore {
   public private(set) var muted: [MutedThread] = []
   public private(set) var isOnline = true
   public private(set) var undoableChange: PendingChange?
+  public private(set) var metricResults: [Metric.ID: Result<SearchResult, GitHubError>] = [:]
 
   public var scope = InboxScope()
   public var showsHidden = false
   public var rules: [FilterRule] = [] {
     didSet { save(rules, as: "rules.json") }
+  }
+  public var metrics: [Metric] = [] {
+    didSet {
+      save(metrics, as: "metrics.json")
+      metricFetches = metricFetches.filter { id, fetch in metrics.contains { $0.id == id && $0.searchQuery == fetch.query } }
+      metricResults = metricResults.filter { metricFetches[$0.key] != nil }
+      if let metric = scope.metric, !metrics.contains(where: { $0.id == metric }) { scope.metric = nil }
+      refreshMetrics()
+    }
+  }
+  public var metricsEnabled = true {
+    didSet {
+      guard metricsEnabled else { return scope.metric = nil }
+      refreshMetrics()
+    }
   }
   private var threadDetailsCache: [String: (updatedAt: Date, status: ThreadDetailsStatus)] = [:]
   public var silencedReasons: Set<Reason> = [] {
@@ -61,6 +77,7 @@ public final class InboxStore {
   @ObservationIgnored private var deferred: [String: PendingAction] = [:]
   @ObservationIgnored private var markedRead: [String: Date] = [:]
   @ObservationIgnored private var archived: [String: Date] = [:]
+  @ObservationIgnored private var metricFetches: [Metric.ID: (query: String, startedAt: Date)] = [:]
 
   public init(
     directory: URL = InboxStore.defaultDirectory,
@@ -83,6 +100,7 @@ public final class InboxStore {
     self.networkPaths = networkPaths
     self.now = now
     rules = load("rules.json") ?? []
+    metrics = load("metrics.json") ?? Metric.defaults
     silencedReasons = load("silenced-reasons.json") ?? []
     try? FileManager.default.removeItem(at: directory.appending(path: "done.json"))
     pending = load("pending.json") ?? []
@@ -92,7 +110,7 @@ public final class InboxStore {
   }
 
   public var visibleItems: [InboxItem] {
-    inbox.filter { scope.contains($0) && (showsHidden || !rules.outcome(for: $0).hides) }
+    inbox.filter { matchesScope($0) && (showsHidden || !rules.outcome(for: $0).hides) }
   }
 
   public var hiddenCount: Int { inbox.count { rules.outcome(for: $0).hides } }
@@ -202,6 +220,7 @@ public final class InboxStore {
     for change in pending where commitTasks[change.id] == nil { schedule(change, after: .zero) }
     lastSync = now()
     hasLoaded = true
+    refreshMetrics()
     if let threads = fetch.threads {
       isCapped = !fetch.isComplete
       await merge(threads)
@@ -268,8 +287,8 @@ public final class InboxStore {
   public func markAllRead() {
     let unread = inbox.filter(\.isUnread)
     let newest = inbox.map(\.thread.updatedAt).max() ?? now()
-    if scope.participatingOnly || hiddenCount > 0 {
-      perform(.markAllRead(.visibleThreads), items: unread.filter { scope.contains($0) && !rules.outcome(for: $0).hides })
+    if scope.participatingOnly || scope.metric != nil || hiddenCount > 0 {
+      perform(.markAllRead(.visibleThreads), items: unread.filter { matchesScope($0) && !rules.outcome(for: $0).hides })
     } else if let repository = scope.repository {
       perform(.markAllRead(.repository(repository, lastReadAt: newest)), items: unread.filter { scope.contains($0) })
     } else {
@@ -324,6 +343,39 @@ public final class InboxStore {
 
   public func dismissFailure() {
     failure = nil
+  }
+
+  private func matchesScope(_ item: InboxItem) -> Bool {
+    guard scope.contains(item) else { return false }
+    guard let metric = scope.metric else { return true }
+    guard let number = item.thread.number, case .success(let result) = metricResults[metric] else { return false }
+    return result.keys.contains("\(item.thread.repository.fullName)#\(number)")
+  }
+
+  private func refreshMetrics() {
+    guard metricsEnabled, let client else { return }
+    let due = metrics.filter { metric in metricFetches[metric.id].map { now().timeIntervalSince($0.startedAt) >= 60 } ?? true }
+    guard !due.isEmpty else { return }
+    for metric in due { metricFetches[metric.id] = (metric.searchQuery, now()) }
+    Task {
+      var rateLimit: GitHubError?
+      for metric in due {
+        let result: Result<SearchResult, GitHubError>
+        if let rateLimit {
+          result = .failure(rateLimit)
+        } else {
+          do {
+            result = .success(try await client.search(metric.searchQuery))
+          } catch {
+            result = .failure(error as? GitHubError ?? .decoding)
+          }
+        }
+        guard client.token == self.client?.token else { return }
+        if case .failure(let error) = result, case .rateLimited = error { rateLimit = error }
+        guard metrics.contains(where: { $0.id == metric.id && $0.searchQuery == metric.searchQuery }) else { continue }
+        metricResults[metric.id] = result
+      }
+    }
   }
 
   private func restartPolling() {
@@ -666,6 +718,8 @@ public final class InboxStore {
     archived = [:]
     muted = []
     failure = nil
+    metricResults = [:]
+    metricFetches = [:]
     save(pending, as: "pending.json")
     save(muted, as: "muted.json")
   }

@@ -40,6 +40,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
         #endif
         updater.start()
+        store.metricsEnabled = AppSettings.shared.showsMetrics
         store.start()
         let workspace = NSWorkspace.shared.notificationCenter
         sleepObservers = [

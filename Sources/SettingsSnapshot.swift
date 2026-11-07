@@ -42,7 +42,7 @@ enum SettingsSnapshot {
         menu.performActionForItem(at: index)
         let settings = await SnapshotCapture.window { $0.identifier?.rawValue.contains("Settings") == true }
         SnapshotCapture.hideOffScreen(settings)
-        let target = scene == "ruleEditor" ? await SnapshotCapture.window { $0.isSheet && $0.isVisible } : settings
+        let target = scene == "ruleEditor" || scene == "metricEditor" ? await SnapshotCapture.window { $0.isSheet && $0.isVisible } : settings
         guard await SnapshotCapture.write(target, to: output) else { exit(1) }
         exit(0)
     }
@@ -75,6 +75,9 @@ private final class SnapshotProtocol: URLProtocol, @unchecked Sendable {
         if url.path() == "/user" {
             let avatar = Bundle.main.url(forResource: "AppIcon", withExtension: "icns")?.absoluteString ?? ""
             return (200, Data(#"{"login": "gustaferiksson", "avatar_url": "\#(avatar)"}"#.utf8))
+        }
+        if url.path() == "/search/issues" {
+            return (200, Data(#"{"total_count": 7, "incomplete_results": false, "items": []}"#.utf8))
         }
         guard url.path() == "/notifications" else { return (404, Data()) }
         let threads = [("octo/app", "PullRequest"), ("octo/infra", "CheckSuite"), ("acme/website", "Issue")].enumerated().map { index, entry in
