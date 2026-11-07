@@ -46,11 +46,14 @@ public struct Metric: Codable, Hashable, Sendable, Identifiable {
   }
 
   public var isValid: Bool {
-    let filter = filter.lowercased()
     guard !title.trimmingCharacters(in: .whitespaces).isEmpty, !filter.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
     switch scope {
     case .everywhere:
-      return ["@me", "user:", "org:", "repo:", "owner:"].contains { filter.contains($0) }
+      return filter.lowercased().split(whereSeparator: \.isWhitespace).contains { term in
+        guard !term.hasPrefix("-"), !term.contains("\""), let colon = term.firstIndex(of: ":") else { return false }
+        let value = term[term.index(after: colon)...]
+        return value == "@me" || (["user", "org", "repo", "owner"].contains(term[..<colon]) && !value.isEmpty)
+      }
     case .organization(let name):
       return !name.isEmpty && !name.contains("/") && !name.contains(where: \.isWhitespace)
     case .repositories(let names):
