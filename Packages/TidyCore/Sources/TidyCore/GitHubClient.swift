@@ -20,22 +20,66 @@ public struct NotificationsFetch: Sendable {
 
 public struct SearchResult: Hashable, Sendable {
   public let totalCount: Int
-  public let keys: Set<String>
+  public let items: [SearchItem]
 }
 
-private struct SearchResponse: Decodable {
-  struct Item: Decodable {
-    let repositoryURL: URL
-    let number: Int
+public struct SearchItem: Decodable, Hashable, Sendable, Identifiable {
+  public let repository: String
+  public let number: Int
+  public let title: String
+  public let htmlURL: URL
+  public let kind: SubjectKind
+  public let state: SubjectState
+  public let author: String?
+  public let updatedAt: Date
+
+  public var id: String { "\(repository)#\(number)" }
+  public var glyph: StateGlyph { StateGlyph(kind: kind, state: state) }
+
+  private enum CodingKeys: String, CodingKey {
+    case number, title, state, draft, user
+    case repositoryURL = "repository_url"
+    case htmlURL = "html_url"
+    case pullRequest = "pull_request"
+    case stateReason = "state_reason"
+    case updatedAt = "updated_at"
+  }
+
+  private struct PullRequest: Decodable {
+    let mergedAt: Date?
 
     enum CodingKeys: String, CodingKey {
-      case number
-      case repositoryURL = "repository_url"
+      case mergedAt = "merged_at"
     }
   }
 
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    repository = try container.decode(URL.self, forKey: .repositoryURL).pathComponents.suffix(2).joined(separator: "/")
+    number = try container.decode(Int.self, forKey: .number)
+    title = try container.decode(String.self, forKey: .title)
+    htmlURL = try container.decode(URL.self, forKey: .htmlURL)
+    updatedAt = try container.decode(Date.self, forKey: .updatedAt)
+    author = try container.decodeIfPresent(GitHubUser.self, forKey: .user)?.login
+    let pullRequest = try container.decodeIfPresent(PullRequest.self, forKey: .pullRequest)
+    let isOpen = try container.decode(String.self, forKey: .state) == "open"
+    let isDraft = try container.decodeIfPresent(Bool.self, forKey: .draft) == true
+    let reason = try container.decodeIfPresent(String.self, forKey: .stateReason)
+    kind = pullRequest == nil ? .issue : .pullRequest
+    state =
+      if isOpen {
+        isDraft ? .draft : .open
+      } else if pullRequest?.mergedAt != nil {
+        .merged
+      } else {
+        reason == "not_planned" ? .notPlanned : .closed
+      }
+  }
+}
+
+private struct SearchResponse: Decodable {
   let totalCount: Int
-  let items: [Item]
+  let items: [SearchItem]
 
   enum CodingKeys: String, CodingKey {
     case items
@@ -137,7 +181,12 @@ public struct GitHubClient: Sendable {
 
   public func search(_ query: String) async throws -> SearchResult {
     var components = URLComponents(url: baseURL.appending(path: "search/issues"), resolvingAgainstBaseURL: false)
-    components?.queryItems = [URLQueryItem(name: "q", value: query), URLQueryItem(name: "per_page", value: "100")]
+    components?.queryItems = [
+      URLQueryItem(name: "q", value: query),
+      URLQueryItem(name: "sort", value: "updated"),
+      URLQueryItem(name: "order", value: "desc"),
+      URLQueryItem(name: "per_page", value: "100"),
+    ]
     // URLComponents leaves "+" bare, which GitHub reads as a space.
     let encodedQuery = components?.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
     components?.percentEncodedQuery = encodedQuery
@@ -149,8 +198,7 @@ public struct GitHubClient: Sendable {
       throw GitHubError.invalidSearch
     }
     let response = try Self.decode(SearchResponse.self, from: data)
-    let keys = response.items.map { "\($0.repositoryURL.pathComponents.suffix(2).joined(separator: "/"))#\($0.number)" }
-    return SearchResult(totalCount: response.totalCount, keys: Set(keys))
+    return SearchResult(totalCount: response.totalCount, items: response.items)
   }
 
   public func get<T: Decodable>(_ type: T.Type, from url: URL) async throws -> T {

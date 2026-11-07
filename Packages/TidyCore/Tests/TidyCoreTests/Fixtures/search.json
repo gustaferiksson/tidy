@@ -2,8 +2,20 @@
   "total_count": 57,
   "incomplete_results": false,
   "items": [
-    { "repository_url": "https://api.github.com/repos/octo/app", "number": 42, "title": "Draft the release notes" },
-    { "repository_url": "https://api.github.com/repos/octo/app", "number": 7, "title": "Crash on launch" },
-    { "repository_url": "https://api.github.com/repos/octo/web", "number": 3, "title": "Fix the footer" }
+    {
+      "repository_url": "https://api.github.com/repos/octo/app", "number": 42, "title": "Add dark mode",
+      "html_url": "https://github.com/octo/app/pull/42", "state": "open", "draft": true, "user": {"login": "mona"},
+      "updated_at": "2026-10-15T10:00:00Z", "pull_request": {"merged_at": null}
+    },
+    {
+      "repository_url": "https://api.github.com/repos/octo/web", "number": 3, "title": "Fix the footer",
+      "html_url": "https://github.com/octo/web/pull/3", "state": "closed", "draft": false, "user": {"login": "hubot"},
+      "updated_at": "2026-10-14T09:00:00Z", "pull_request": {"merged_at": "2026-10-14T09:00:00Z"}
+    },
+    {
+      "repository_url": "https://api.github.com/repos/octo/app", "number": 7, "title": "Crash on launch",
+      "html_url": "https://github.com/octo/app/issues/7", "state": "closed", "state_reason": "not_planned", "user": null,
+      "updated_at": "2026-10-13T08:00:00Z"
+    }
   ]
 }

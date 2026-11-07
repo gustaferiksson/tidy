@@ -611,21 +611,24 @@ struct InboxStoreTests {
   @Test func metricsDefaultToTheAtMePresetsAndPersist() {
     let store = makeStore()
     #expect(store.metrics.map(\.filter) == Metric.defaults.map(\.filter))
-    store.metrics = [Metric(title: "Triage", filter: "is:issue", scope: .repositories(["octo/app"]))]
+    store.metrics = [Metric(title: "Triage", sources: ["octo/app"], filter: "is:issue")]
     #expect(makeStore().metrics == store.metrics)
     store.metrics = []
     #expect(makeStore().metrics.isEmpty)
   }
 
-  @Test func metricFilterShowsOnlySearchMatches() async throws {
+  @Test func metricListsItsSearchResults() async throws {
     let store = makeStore()
+    store.rules = [FilterRule(conditions: [.reason(.reviewRequested)])]
     await store.refresh()
     await waitUntil { store.metricResults.count == 3 }
     #expect(requests("GET").count { $0 == "/search/issues" } == 3)
     let metric = store.metrics[0]
     #expect(try store.metricResults[metric.id]?.get().totalCount == 57)
+    store.scope = InboxScope(participatingOnly: true, repository: "octo/lib")
     store.scope.metric = metric.id
-    #expect(store.scope.isActive)
+    #expect(store.scope == InboxScope(metric: metric.id))
+    #expect(store.metricRows.map(\.id) == ["101", "octo/web#3", "102"])
     #expect(store.visibleItems.map(\.id) == ["101", "102"])
     store.markAllRead()
     await store.flushPending()
@@ -641,6 +644,9 @@ struct InboxStoreTests {
     await waitUntil { requests("GET").count { $0 == "/search/issues" } == 4 }
     store.metrics.removeAll { $0.id == metric.id }
     #expect(store.scope.metric == nil)
+    store.scope.metric = store.metrics[0].id
+    store.scope.repository = "octo/app"
+    #expect(store.scope == InboxScope(repository: "octo/app"))
   }
 
   @Test func failedMetricStaysOnItsTile() async {
@@ -675,6 +681,26 @@ struct InboxStoreTests {
     store.scope.metric = store.metrics[0].id
     store.metricsEnabled = false
     #expect(store.scope.metric == nil)
+  }
+
+  @Test func menuBarMetricSearchesWhileMetricsAreHidden() async {
+    let store = makeStore()
+    store.metricsEnabled = false
+    store.menuBarMetric = store.metrics[1].id
+    await store.refresh()
+    await waitUntil { store.metricResults.count == 1 }
+    #expect(store.metricResults[store.metrics[1].id] != nil)
+    #expect(requests("GET").count { $0 == "/search/issues" } == 1)
+  }
+
+  @Test func editorSearchesShareTheRateLimit() async {
+    server.on("GET", "/search/issues", respond: StubResponse(status: 403, headers: ["X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1790003600"]))
+    let store = makeStore()
+    await store.refresh()
+    await waitUntil { store.metricResults.count == 3 }
+    let result = await store.search("is:pr author:@me label:bug")
+    #expect(result == .failure(.rateLimited(resetsAt: Date(timeIntervalSince1970: 1_790_003_600))))
+    #expect(requests("GET").count { $0 == "/search/issues" } == 1)
   }
 
   @Test func muteThreadUnsubscribesAndArchives() async throws {

@@ -102,11 +102,15 @@ struct MetricSettings: View {
             } header: {
                 Text("Metrics")
             } footer: {
-                Text("Each metric counts a GitHub search. Click its tile in the panel to show only matching notifications. Drag to reorder.")
+                Text("Each metric counts a GitHub search. Click its tile in the panel to list the results. Drag to reorder.")
             }
         }
         .formStyle(.grouped)
         .frame(height: 600)
+        .onChange(of: store.metrics) {
+            guard let id = settings.menuBarCount.metricID, !store.metrics.contains(where: { $0.id == id }) else { return }
+            settings.menuBarCount = .unread
+        }
         .sheet(item: $editing) { metric in
             let index = store.metrics.firstIndex { $0.id == metric.id }
             MetricEditor(metric: metric) { saved in

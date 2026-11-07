@@ -15,7 +15,7 @@ struct InboxList: View {
     var body: some View {
         ScrollViewReader { proxy in
             ZStack {
-                if items.isEmpty {
+                if order.isEmpty {
                     emptyState.frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     list
@@ -26,7 +26,7 @@ struct InboxList: View {
                 withAnimation { proxy.scrollTo(id) }
                 panel.revealID = nil
             }
-            .onChange(of: items.map(\.id)) { panel.refreshHoverAfterListChange() }
+            .onChange(of: order) { panel.refreshHoverAfterListChange() }
             .focusable(interactions: .edit)
             .focusEffectDisabled()
             .focused($isFocused)
@@ -39,7 +39,6 @@ struct InboxList: View {
             }
             .onKeyPress(keys: [.upArrow, .downArrow]) { press in
                 guard press.modifiers.isDisjoint(with: [.shift, .command, .control, .option]) else { return .ignored }
-                let order = items.map(\.id)
                 guard let next = steppedSelection(from: panel.selection, in: order, by: press.key == .upArrow ? -1 : 1) else { return .ignored }
                 panel.selection = [next]
                 proxy.scrollTo(next)
@@ -52,6 +51,10 @@ struct InboxList: View {
             }
             .onKeyPress(.return, phases: .down) { press in
                 if press.modifiers.isDisjoint(with: [.command, .shift, .control, .option]) {
+                    if let result = store.metricRows.first(where: { $0.thread == nil && panel.selection == [$0.id] })?.result {
+                        if result.htmlURL.isGitHubWeb { NSWorkspace.shared.open(result.htmlURL) }
+                        return .handled
+                    }
                     guard selected.count == 1, let id = selected.first?.id else { return .ignored }
                     panel.showDetails(id)
                     return .handled
@@ -82,16 +85,52 @@ struct InboxList: View {
         @Bindable var panel = panel
         return TimelineView(.everyMinute) { context in
             List(selection: $panel.selection) {
-                ForEach(items) { item in
-                    InboxRow(item: item, now: context.date)
+                if store.scope.metric == nil {
+                    ForEach(items) { item in
+                        InboxRow(item: item, now: context.date)
+                            .listRowInsets(EdgeInsets())
+                            .listRowSeparator(.hidden)
+                    }
+                } else {
+                    ForEach(store.metricRows) { row in
+                        Group {
+                            if let thread = row.thread {
+                                InboxRow(item: thread, now: context.date)
+                            } else {
+                                SearchResultRow(result: row.result, now: context.date)
+                            }
+                        }
                         .listRowInsets(EdgeInsets())
                         .listRowSeparator(.hidden)
+                    }
+                    shortfall
                 }
             }
             .listStyle(.inset)
             .scrollContentBackground(.hidden)
             .background(OverlayScrollers())
             .contextMenu(forSelectionType: String.self) { ids in contextMenu(for: ids) }
+        }
+    }
+
+    private var order: [String] {
+        store.scope.metric == nil ? items.map(\.id) : store.metricRows.map(\.id)
+    }
+
+    @ViewBuilder private var shortfall: some View {
+        if let metric = store.metrics.first(where: { $0.id == store.scope.metric }),
+           case .success(let result) = store.metricResults[metric.id],
+           result.totalCount > result.items.count,
+           let url = metric.webURL {
+            Button("Showing \(result.items.count) of \(result.totalCount.formatted())") { NSWorkspace.shared.open(url) }
+                .buttonStyle(.plain)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .pointerStyle(.link)
+                .help("Open the search on GitHub")
+                .frame(maxWidth: .infinity, minHeight: 36)
+                .listRowSeparator(.hidden)
+                .selectionDisabled()
         }
     }
 
@@ -114,7 +153,7 @@ struct InboxList: View {
                 }
             } else {
                 ContentUnavailableView {
-                    Label("No notifications match \(metric.title)", systemImage: "line.3.horizontal.decrease.circle")
+                    Label("No results for \(metric.title)", systemImage: "magnifyingglass")
                 } actions: {
                     Button("Clear Filter") { store.scope = InboxScope() }
                 }

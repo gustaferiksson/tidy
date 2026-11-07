@@ -55,9 +55,19 @@ public struct MutedThread: Codable, Hashable, Sendable, Identifiable {
 }
 
 public struct InboxScope: Hashable, Sendable {
-  public var participatingOnly: Bool
-  public var repository: String?
-  public var metric: Metric.ID?
+  public var participatingOnly: Bool {
+    didSet { if participatingOnly { metric = nil } }
+  }
+  public var repository: String? {
+    didSet { if repository != nil { metric = nil } }
+  }
+  public var metric: Metric.ID? {
+    didSet {
+      guard metric != nil else { return }
+      participatingOnly = false
+      repository = nil
+    }
+  }
 
   public init(participatingOnly: Bool = false, repository: String? = nil, metric: Metric.ID? = nil) {
     self.participatingOnly = participatingOnly
@@ -71,6 +81,13 @@ public struct InboxScope: Hashable, Sendable {
     (!participatingOnly || item.thread.reason.group == .participating)
       && (repository.map { $0 == item.thread.repository.fullName } ?? true)
   }
+}
+
+public struct SearchRow: Hashable, Sendable, Identifiable {
+  public let result: SearchItem
+  public let thread: InboxItem?
+
+  public var id: String { thread?.id ?? result.id }
 }
 
 public enum SyncIssue: Hashable, Sendable {

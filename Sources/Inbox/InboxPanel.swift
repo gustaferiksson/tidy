@@ -54,16 +54,7 @@ struct InboxPanel: View {
 
     private var header: some View {
         HStack(spacing: 4) {
-            if store.isSignedIn {
-                Picker("Show", selection: $showsAll) {
-                    Text("Unread").tag(false)
-                    Text("All").tag(true)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
-                .focusEffectDisabled()
-            }
+            if store.isSignedIn { title }
             Spacer(minLength: 8)
             if store.isSignedIn { filterMenu }
             moreMenu
@@ -76,9 +67,31 @@ struct InboxPanel: View {
         .frame(height: 44)
     }
 
+    private var title: some View {
+        let metric = store.metrics.first { $0.id == store.scope.metric }
+        let count: Int? = if let metric {
+            try? store.metricResults[metric.id]?.get().totalCount
+        } else {
+            showsAll ? items.count : items.count(where: \.isUnread)
+        }
+        return HStack(alignment: .firstTextBaseline, spacing: 6) {
+            Text(metric?.title ?? (showsAll ? "All" : "Unread"))
+                .font(.system(size: 15, weight: .bold))
+            if let count {
+                Text(count.formatted())
+                    .font(.system(size: 15))
+                    .monospacedDigit()
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .lineLimit(1)
+    }
+
     @ViewBuilder private var filterMenu: some View {
         @Bindable var store = store
         Menu {
+            Toggle("Unread Only", isOn: Binding { !showsAll } set: { showsAll = !$0 })
+                .disabled(store.scope.metric != nil)
             Toggle("Participating Only", isOn: $store.scope.participatingOnly)
             Picker("Repository", selection: $store.scope.repository) {
                 Text("All Repositories").tag(String?.none)

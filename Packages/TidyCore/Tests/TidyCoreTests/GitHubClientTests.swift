@@ -143,11 +143,17 @@ struct GitHubClientTests {
     server.on("GET", "/search/issues", respond: .json("search"))
     let result = try await server.client.search("org:octo is:pr is:open review-requested:@me")
     #expect(result.totalCount == 57)
-    #expect(result.keys == ["octo/app#42", "octo/app#7", "octo/web#3"])
+    #expect(result.items.map(\.id) == ["octo/app#42", "octo/web#3", "octo/app#7"])
+    #expect(result.items.map(\.state) == [.draft, .merged, .notPlanned])
+    #expect(result.items.map(\.kind) == [.pullRequest, .pullRequest, .issue])
+    #expect(result.items.map(\.author) == ["mona", "hubot", nil])
+    #expect(result.items[0].htmlURL.absoluteString == "https://github.com/octo/app/pull/42")
     let request = try #require(server.requests.first)
     let query = URLComponents(url: request.url, resolvingAgainstBaseURL: false)?.queryItems ?? []
     #expect(query.contains(URLQueryItem(name: "q", value: "org:octo is:pr is:open review-requested:@me")))
     #expect(query.contains(URLQueryItem(name: "per_page", value: "100")))
+    #expect(query.contains(URLQueryItem(name: "sort", value: "updated")))
+    #expect(query.contains(URLQueryItem(name: "order", value: "desc")))
   }
 
   @Test func searchKeepsPlusSignsLiteral() async throws {

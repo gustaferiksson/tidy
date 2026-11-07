@@ -41,11 +41,12 @@ Network loss pauses polling and sets `issue = .offline`; reconnect resumes polli
 | Property | Meaning |
 |---|---|
 | `inbox: [InboxItem]` | Every thread not archived, newest `updatedAt` first, filters not applied |
-| `visibleItems: [InboxItem]` | `inbox` after `scope` and hide rules (hidden rows included while `showsHidden`). The Unread/All segment is the app's own `filter(\.isUnread)` |
+| `visibleItems: [InboxItem]` | `inbox` after `scope` and hide rules (hidden rows included while `showsHidden`). With a metric in `scope`: the threads among `metricRows`, hide rules ignored. Unread Only is the app's own `filter(\.isUnread)` |
+| `metricRows: [SearchRow]` | The active metric's search results in GitHub's order (`updated` desc), each with its inbox thread when one has the same repo#number |
 | `unreadCount: Int` | Menu bar count: unread, not hidden by a rule. Ignores `scope`. Rows whose author/state rule is still waiting for subject data count (they are visible too), so the count can drop once the data arrives |
 | `hiddenCount: Int` | Footer "N hidden by filters" |
 | `showsHidden: Bool` (settable) | Footer "Show" |
-| `scope: InboxScope` (settable) | Header filter: `participatingOnly`, `repository`; `isActive` for the capsule |
+| `scope: InboxScope` (settable) | Header filter: `participatingOnly`, `repository`, or `metric` (setting a metric clears the other two and vice versa); `isActive` for the capsule |
 | `repositories: [String]` | Repos seen, sorted, for the Repository submenu and rule picker |
 | `isSignedIn`, `account: GitHubAccount?` | `account.user.login/avatarURL`, `account.scopes` (rechecked every poll). A missing or unreadable `account.json` is refilled via `GET /user` on the next successful poll |
 | `hasLoaded` | false until the first successful fetch (first-load spinner) |

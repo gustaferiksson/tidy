@@ -14,8 +14,34 @@ enum MetricLayout: String, CaseIterable {
     case scroll, row, grid
 }
 
-enum MenuBarCount: String {
+enum MenuBarCount: RawRepresentable, Hashable {
     case unread, notDone
+    case metric(Metric.ID)
+
+    init?(rawValue: String) {
+        if rawValue == "unread" {
+            self = .unread
+        } else if rawValue == "notDone" {
+            self = .notDone
+        } else if rawValue.hasPrefix("metric:"), let id = UUID(uuidString: String(rawValue.dropFirst(7))) {
+            self = .metric(id)
+        } else {
+            return nil
+        }
+    }
+
+    var rawValue: String {
+        switch self {
+        case .unread: "unread"
+        case .notDone: "notDone"
+        case .metric(let id): "metric:\(id.uuidString)"
+        }
+    }
+
+    var metricID: Metric.ID? {
+        guard case .metric(let id) = self else { return nil }
+        return id
+    }
 }
 
 enum ReturnToListDelay: String {
