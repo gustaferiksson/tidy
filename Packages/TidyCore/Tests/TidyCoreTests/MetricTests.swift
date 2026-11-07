@@ -8,6 +8,7 @@ struct MetricTests {
     #expect(Metric(title: "Mine", filter: "is:pr author:@me").searchQuery == "is:pr author:@me")
     #expect(Metric(title: "Org", sources: ["octo"], filter: "is:issue").searchQuery == "user:octo is:issue")
     #expect(Metric(title: "Me", sources: ["@me"], filter: "").searchQuery == "user:@me")
+    #expect(Metric(title: "Typed", sources: ["user:gustaf", "org:tinecli", "repo:octo/app"], filter: "is:issue").searchQuery == "user:gustaf org:tinecli repo:octo/app is:issue")
     #expect(
       Metric(title: "Repos", sources: ["octo/app", "octo/lib"], filter: "is:issue no:label").searchQuery
         == "repo:octo/app repo:octo/lib is:issue no:label")
@@ -42,6 +43,9 @@ struct MetricTests {
     #expect(!Metric(title: "Open", sources: ["octo/app/x"], filter: "is:open").isValid)
     #expect(!Metric(title: "Open", sources: ["octo/"], filter: "is:open").isValid)
     #expect(!Metric(title: "Open", sources: ["oc to"], filter: "is:open").isValid)
+    #expect(Metric(title: "Open", sources: ["user:gustaf", "org:tinecli"], filter: "is:open").isValid)
+    #expect(!Metric(title: "Open", sources: ["label:bug"], filter: "is:open").isValid)
+    #expect(!Metric(title: "Open", sources: ["org:"], filter: "is:open").isValid)
     #expect(!Metric(title: "Open", sources: ["octo/"], filter: "author:@me").isValid)
     #expect(!Metric(title: "", sources: ["octo"], filter: "").isValid)
     #expect(Metric(title: "", sources: ["octo"], filter: "").isSearchValid)

@@ -56,8 +56,13 @@ public struct Metric: Codable, Hashable, Sendable, Identifiable {
 
   public static var defaults: [Metric] { Array(presets.prefix(3)) }
 
+  private static let sourceQualifiers = ["user:", "org:", "owner:", "repo:"]
+
   public var searchQuery: String {
-    (sources.map { $0.contains("/") ? "repo:\($0)" : "user:\($0)" } + [filter])
+    (sources.map { source in
+      if Self.sourceQualifiers.contains(where: source.lowercased().hasPrefix) { return source }
+      return source.contains("/") ? "repo:\(source)" : "user:\(source)"
+    } + [filter])
       .filter { !$0.isEmpty }
       .joined(separator: " ")
   }
@@ -83,7 +88,10 @@ public struct Metric: Codable, Hashable, Sendable, Identifiable {
 
   public var isSearchValid: Bool {
     let sourcesAreValid = sources.allSatisfy { source in
-      let parts = source.split(separator: "/", omittingEmptySubsequences: false)
+      let colon = source.firstIndex(of: ":")
+      if let colon, !Self.sourceQualifiers.contains(source[...colon].lowercased()) { return false }
+      let name = colon.map { source[source.index(after: $0)...] } ?? source[...]
+      let parts = name.split(separator: "/", omittingEmptySubsequences: false)
       return parts.count <= 2 && parts.allSatisfy { !$0.isEmpty && !$0.contains(where: \.isWhitespace) }
     }
     guard sourcesAreValid else { return false }
