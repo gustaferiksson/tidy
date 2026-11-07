@@ -75,7 +75,7 @@ public struct InboxScope: Hashable, Sendable {
     self.metric = metric
   }
 
-  public var isActive: Bool { participatingOnly || repository != nil || metric != nil }
+  public var isActive: Bool { participatingOnly || repository != nil }
 
   public func contains(_ item: InboxItem) -> Bool {
     (!participatingOnly || item.thread.reason.group == .participating)
