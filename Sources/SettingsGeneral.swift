@@ -49,6 +49,20 @@ struct GeneralSettings: View {
                 Text("When hidden, open Tidy again to show Settings.")
             }
 
+            Section {
+                Picker("Return to the list after", selection: $settings.returnToListAfter) {
+                    Text("1 minute").tag(ReturnToListDelay.oneMinute)
+                    Text("5 minutes").tag(ReturnToListDelay.fiveMinutes)
+                    Text("15 minutes").tag(ReturnToListDelay.fifteenMinutes)
+                    Text("1 hour").tag(ReturnToListDelay.oneHour)
+                    Text("Never").tag(ReturnToListDelay.never)
+                }
+            } header: {
+                Text("Inbox")
+            } footer: {
+                Text("When Tidy was left open on a conversation, reopening it after this long shows the list.")
+            }
+
             Section("Updates") {
                 Toggle("Automatically check for updates", isOn: $settings.checksForUpdatesAutomatically)
                     .onChange(of: settings.checksForUpdatesAutomatically) { _, isOn in
@@ -72,7 +86,7 @@ struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
-        .frame(height: 460)
+        .frame(height: 560)
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             loginStatus = SMAppService.mainApp.status
         }

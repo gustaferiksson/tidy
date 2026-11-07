@@ -10,6 +10,20 @@ enum MenuBarCount: String {
     case unread, notDone
 }
 
+enum ReturnToListDelay: String {
+    case oneMinute, fiveMinutes, fifteenMinutes, oneHour, never
+
+    var seconds: TimeInterval? {
+        switch self {
+        case .oneMinute: 60
+        case .fiveMinutes: 5 * 60
+        case .fifteenMinutes: 15 * 60
+        case .oneHour: 60 * 60
+        case .never: nil
+        }
+    }
+}
+
 enum SettingsTab: String {
     case general, github, notifications, filters, keyboard, about
 }
@@ -32,6 +46,7 @@ final class AppSettings {
     var showMenuBarIcon: Bool { didSet { store.set(showMenuBarIcon, forKey: "showMenuBarIcon") } }
     var menuBarStyle: MenuBarStyle { didSet { store.set(menuBarStyle.rawValue, forKey: "menuBarStyle") } }
     var menuBarCount: MenuBarCount { didSet { store.set(menuBarCount.rawValue, forKey: "menuBarCount") } }
+    var returnToListAfter: ReturnToListDelay { didSet { store.set(returnToListAfter.rawValue, forKey: "returnToListAfter") } }
     var checksForUpdatesAutomatically: Bool { didSet { store.set(checksForUpdatesAutomatically, forKey: "checksForUpdatesAutomatically") } }
     var settingsTab: SettingsTab { didSet { store.set(settingsTab.rawValue, forKey: "settingsTab") } }
     var shortcuts: ShortcutBindings { didSet { store.set(try? JSONEncoder().encode(shortcuts), forKey: "shortcuts") } }
@@ -42,6 +57,7 @@ final class AppSettings {
         showMenuBarIcon = store.bool(forKey: "showMenuBarIcon")
         menuBarStyle = store.string(forKey: "menuBarStyle").flatMap(MenuBarStyle.init) ?? .iconAndCount
         menuBarCount = store.string(forKey: "menuBarCount").flatMap(MenuBarCount.init) ?? .unread
+        returnToListAfter = store.string(forKey: "returnToListAfter").flatMap(ReturnToListDelay.init) ?? .fiveMinutes
         checksForUpdatesAutomatically = store.bool(forKey: "checksForUpdatesAutomatically")
         settingsTab = store.string(forKey: "settingsTab").flatMap(SettingsTab.init) ?? .general
         shortcuts = store.data(forKey: "shortcuts").flatMap { try? JSONDecoder().decode(ShortcutBindings.self, from: $0) } ?? .defaults

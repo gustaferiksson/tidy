@@ -17,6 +17,7 @@ final class PanelController {
     @ObservationIgnored private var previousApp: NSRunningApplication?
     @ObservationIgnored private var activationObserver: NSObjectProtocol?
     @ObservationIgnored private var fallbackWindow: NSWindow?
+    @ObservationIgnored private var closedAt: Date?
     @ObservationIgnored weak var panelWindow: NSWindow?
 
     init(store: InboxStore, updater: AppUpdater) {
@@ -33,11 +34,19 @@ final class PanelController {
 
     func panelDidOpen() {
         isOpen = true
+        if quickLookID != nil, let closedAt, let delay = AppSettings.shared.returnToListAfter.seconds,
+           Date.now.timeIntervalSince(closedAt) >= delay {
+            var transaction = Transaction()
+            transaction.disablesAnimations = true
+            withTransaction(transaction) { quickLookID = nil }
+        }
+        closedAt = nil
     }
 
     func panelDidClose() {
         guard isOpen else { return }
         isOpen = false
+        closedAt = .now
         openedIDs = []
         Task { await store.flushPending() }
         Task { @MainActor in
@@ -65,6 +74,7 @@ final class PanelController {
     func showDetails(_ id: String) {
         selection = [id]
         quickLookID = id
+        closedAt = nil
         openedIDs.insert(id)
         store.markRead(opening: id)
     }
