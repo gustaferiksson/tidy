@@ -148,9 +148,6 @@ struct InboxPanel: View {
             if let repository = store.scope.repository {
                 FilterChip(title: repository) { store.scope.repository = nil }
             }
-            if let metric = store.metrics.first(where: { $0.id == store.scope.metric }) {
-                FilterChip(title: metric.title) { store.scope.metric = nil }
-            }
             Spacer(minLength: 0)
         }
         .padding(.horizontal, 12)
