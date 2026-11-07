@@ -45,7 +45,14 @@ private struct MenuBarLabel: View {
 @MainActor
 func menuBarImage(store: InboxStore, style: MenuBarStyle, counting: MenuBarCount = .unread) -> NSImage {
     let isBroken = !store.isSignedIn || store.issue == .unauthorized || store.issue == .missingScope
-    let tracked = counting == .unread ? store.unreadCount : store.inbox.count { !store.rules.outcome(for: $0).hides }
+    let metric = store.metrics.first { $0.id == counting.metricID }
+    let tracked = if let metric {
+        (try? store.metricResults[metric.id]?.get().totalCount) ?? 0
+    } else if counting == .notDone {
+        store.inbox.count { !store.rules.outcome(for: $0).hides }
+    } else {
+        store.unreadCount
+    }
     let count = isBroken ? 0 : tracked
     let font = NSFont.menuBarFont(ofSize: 0)
     let symbolName = style == .iconOnly && count > 0 ? "tray.badge" : "tray"
@@ -70,6 +77,6 @@ func menuBarImage(store: InboxStore, style: MenuBarStyle, counting: MenuBarCount
         return true
     }
     image.isTemplate = true
-    image.accessibilityDescription = count > 0 ? "Tidy, \(count) \(counting == .unread ? "unread" : "not done")" : "Tidy"
+    image.accessibilityDescription = count > 0 ? "Tidy, \(count) \(metric?.title ?? (counting == .notDone ? "not done" : "unread"))" : "Tidy"
     return image
 }

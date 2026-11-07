@@ -39,9 +39,12 @@ public final class InboxStore {
   }
   public var metricsEnabled = true {
     didSet {
-      guard metricsEnabled else { return scope.metric = nil }
+      if !metricsEnabled { scope.metric = nil }
       refreshMetrics()
     }
+  }
+  public var menuBarMetric: Metric.ID? {
+    didSet { refreshMetrics() }
   }
   private var threadDetailsCache: [String: (updatedAt: Date, status: ThreadDetailsStatus)] = [:]
   public var silencedReasons: Set<Reason> = [] {
@@ -78,6 +81,7 @@ public final class InboxStore {
   @ObservationIgnored private var markedRead: [String: Date] = [:]
   @ObservationIgnored private var archived: [String: Date] = [:]
   @ObservationIgnored private var metricFetches: [Metric.ID: (query: String, startedAt: Date)] = [:]
+  @ObservationIgnored private var searchPause: (error: GitHubError, until: Date)?
 
   public init(
     directory: URL = InboxStore.defaultDirectory,
@@ -110,7 +114,16 @@ public final class InboxStore {
   }
 
   public var visibleItems: [InboxItem] {
-    inbox.filter { matchesScope($0) && (showsHidden || !rules.outcome(for: $0).hides) }
+    guard scope.metric == nil else { return metricRows.compactMap(\.thread) }
+    return inbox.filter { scope.contains($0) && (showsHidden || !rules.outcome(for: $0).hides) }
+  }
+
+  public var metricRows: [SearchRow] {
+    guard let metric = scope.metric, case .success(let result) = metricResults[metric] else { return [] }
+    let threads = Dictionary(
+      inbox.compactMap { item in item.thread.number.map { ("\(item.thread.repository.fullName)#\($0)", item) } }
+    ) { first, _ in first }
+    return result.items.map { SearchRow(result: $0, thread: threads[$0.id]) }
   }
 
   public var hiddenCount: Int { inbox.count { rules.outcome(for: $0).hides } }
@@ -287,8 +300,10 @@ public final class InboxStore {
   public func markAllRead() {
     let unread = inbox.filter(\.isUnread)
     let newest = inbox.map(\.thread.updatedAt).max() ?? now()
-    if scope.participatingOnly || scope.metric != nil || hiddenCount > 0 {
-      perform(.markAllRead(.visibleThreads), items: unread.filter { matchesScope($0) && !rules.outcome(for: $0).hides })
+    if scope.metric != nil {
+      perform(.markAllRead(.visibleThreads), items: visibleItems.filter(\.isUnread))
+    } else if scope.participatingOnly || hiddenCount > 0 {
+      perform(.markAllRead(.visibleThreads), items: unread.filter { scope.contains($0) && !rules.outcome(for: $0).hides })
     } else if let repository = scope.repository {
       perform(.markAllRead(.repository(repository, lastReadAt: newest)), items: unread.filter { scope.contains($0) })
     } else {
@@ -345,33 +360,36 @@ public final class InboxStore {
     failure = nil
   }
 
-  private func matchesScope(_ item: InboxItem) -> Bool {
-    guard scope.contains(item) else { return false }
-    guard let metric = scope.metric else { return true }
-    guard let number = item.thread.number, case .success(let result) = metricResults[metric] else { return false }
-    return result.keys.contains("\(item.thread.repository.fullName)#\(number)")
+  public func search(_ query: String) async -> Result<SearchResult, GitHubError> {
+    guard let client else { return .failure(.unauthorized) }
+    let fresh = metricFetches.first { $0.value.query == query && now().timeIntervalSince($0.value.startedAt) < 60 }
+    if let fresh, let result = metricResults[fresh.key] { return result }
+    return await search(query, client: client)
+  }
+
+  private func search(_ query: String, client: GitHubClient) async -> Result<SearchResult, GitHubError> {
+    if let searchPause, searchPause.until > now() { return .failure(searchPause.error) }
+    do {
+      return .success(try await client.search(query))
+    } catch {
+      let failure = error as? GitHubError ?? .decoding
+      if case .rateLimited(let resetsAt) = failure { searchPause = (failure, max(resetsAt, now().addingTimeInterval(60))) }
+      return .failure(failure)
+    }
   }
 
   private func refreshMetrics() {
-    guard metricsEnabled, let client else { return }
-    let due = metrics.filter { metric in metricFetches[metric.id].map { now().timeIntervalSince($0.startedAt) >= 60 } ?? true }
+    guard let client else { return }
+    let due = metrics.filter { metric in
+      guard metricsEnabled || metric.id == menuBarMetric else { return false }
+      return metricFetches[metric.id].map { now().timeIntervalSince($0.startedAt) >= 60 } ?? true
+    }
     guard !due.isEmpty else { return }
     for metric in due { metricFetches[metric.id] = (metric.searchQuery, now()) }
     Task {
-      var rateLimit: GitHubError?
       for metric in due {
-        let result: Result<SearchResult, GitHubError>
-        if let rateLimit {
-          result = .failure(rateLimit)
-        } else {
-          do {
-            result = .success(try await client.search(metric.searchQuery))
-          } catch {
-            result = .failure(error as? GitHubError ?? .decoding)
-          }
-        }
+        let result = await search(metric.searchQuery, client: client)
         guard client.token == self.client?.token else { return }
-        if case .failure(let error) = result, case .rateLimited = error { rateLimit = error }
         guard metrics.contains(where: { $0.id == metric.id && $0.searchQuery == metric.searchQuery }) else { continue }
         metricResults[metric.id] = result
       }
@@ -720,6 +738,7 @@ public final class InboxStore {
     failure = nil
     metricResults = [:]
     metricFetches = [:]
+    searchPause = nil
     save(pending, as: "pending.json")
     save(muted, as: "muted.json")
   }

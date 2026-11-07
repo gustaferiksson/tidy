@@ -38,11 +38,11 @@ Set in Settings › General › Menu Bar.
 ## 3. Panel: Inbox
 
 **Header (44 pt):**
-- **Leading:** a segmented control with Unread and All.
+- **Leading:** the view's title in bold ("Unread" or "All") and its count in secondary text: unread rows for Unread, listed rows for All. With a metric active it shows the metric's title and total count instead.
 - **Trailing:** two buttons.
-  - `line.3.horizontal.decrease.circle` opens a menu with Participating Only and a Repository submenu. The submenu is built locally from the repos in the list.
+  - `line.3.horizontal.decrease.circle` opens a menu with Unread Only, Participating Only and a Repository submenu. The submenu is built locally from the repos in the list. Unread Only is disabled while a metric is active and never shows a capsule.
   - `ellipsis.circle` opens a menu with Mark All as Read, Settings… (⌘,) and Quit Tidy (⌘Q).
-- While a filter is active, it shows as a removable capsule under the header.
+- While a filter is active, it shows as a removable capsule under the header. A metric and the Participating or Repository filters exclude each other: choosing one clears the other.
 
 **List:**
 - One flat list, newest `updated_at` first.
@@ -66,7 +66,9 @@ As in Mail, weight and the dot are the only difference: read rows aren't greyed 
 
 There is no Done section. Done archives a thread (§4), so it leaves the list.
 
-**Unread segment:** a thread opened in Quick Look (§7) stays in the Unread list, read, until the panel closes, so stepping back with ↑ still finds it.
+**Metric:** the list is the metric's search results, most recently updated first, so the count matches the tile. A result with a notification thread shows as that thread's row; one without shows the same look (state glyph, title, repo and number, author) and opens on github.com when clicked. Past 100 results, a last row "Showing 100 of N" opens the search on github.com.
+
+**Unread view:** a thread opened in Quick Look (§7) stays in the Unread list, read, until the panel closes, so stepping back with ↑ still finds it.
 
 **Footer (28 pt, secondary colour):** shows one of these:
 - `Updated 1m ago`, or a status from §8.
@@ -367,7 +369,7 @@ The standard `Settings` scene with toolbar tabs, about 480 pt wide.
 
 | Tab | Controls |
 |---|---|
-| General | Launch at Login (`SMAppService.mainApp`), the Menu Bar style picker and **Menu bar shows** (Unread notifications or Everything not done), Automatically check for updates (on by default: at launch, every 24 h and on wake), **Check for Updates** |
+| General | Launch at Login (`SMAppService.mainApp`), the Menu Bar style picker and **Menu bar shows** (Unread notifications, Everything not done, or a metric's total count), Automatically check for updates (on by default: at launch, every 24 h and on wake), **Check for Updates** |
 | GitHub | When signed out: a `SecureField` labelled "Personal access token (classic)", a **Create Token…** link to `https://github.com/settings/tokens/new?scopes=notifications,repo&description=Tidy`, and **Connect**. Connect calls `GET /user` and requires `repo` in `X-OAuth-Scopes`. A token that starts with `github_pat_` is rejected inline before any network call: "Fine-grained tokens can't read notifications. Use a classic token." Other errors also show inline under the field. When signed in: avatar, login, a scope checklist, **Replace Token…** and **Disconnect**. The token lives in the Keychain (generic password, this device only) |
 | Notifications | The system permission status, with **Open System Settings…** for sound, style and turning banners off. A "Notify for" checklist of every reason, all on by default, grouped as Participating, Security and Activity |
 | Filters | The rule list (+ and −, drag to reorder), a sheet for editing a rule, and the muted threads |

@@ -1,22 +1,48 @@
 import Foundation
 
-public enum MetricScope: Codable, Hashable, Sendable {
-  case everywhere
-  case organization(String)
-  case repositories([String])
-}
-
 public struct Metric: Codable, Hashable, Sendable, Identifiable {
   public var id: UUID
   public var title: String
+  public var sources: [String]
   public var filter: String
-  public var scope: MetricScope
 
-  public init(id: UUID = UUID(), title: String, filter: String, scope: MetricScope = .everywhere) {
+  public init(id: UUID = UUID(), title: String, sources: [String] = [], filter: String) {
     self.id = id
     self.title = title
+    self.sources = sources
     self.filter = filter
-    self.scope = scope
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case id, title, sources, filter
+  }
+
+  private enum LegacyKeys: String, CodingKey {
+    case scope
+  }
+
+  private enum LegacyScope: Decodable {
+    case everywhere
+    case organization(String)
+    case repositories([String])
+  }
+
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    id = try container.decode(UUID.self, forKey: .id)
+    title = try container.decode(String.self, forKey: .title)
+    filter = try container.decode(String.self, forKey: .filter)
+    if let sources = try container.decodeIfPresent([String].self, forKey: .sources) {
+      self.sources = sources
+      return
+    }
+    let scope = try decoder.container(keyedBy: LegacyKeys.self).decodeIfPresent(LegacyScope.self, forKey: .scope)
+    sources =
+      switch scope {
+      case .organization(let name): [name]
+      case .repositories(let names): names
+      case .everywhere, nil: []
+      }
   }
 
   public static var presets: [Metric] {
@@ -24,18 +50,24 @@ public struct Metric: Codable, Hashable, Sendable, Identifiable {
       Metric(title: "PRs to review", filter: "is:pr is:open review-requested:@me"),
       Metric(title: "My open PRs", filter: "is:pr is:open author:@me"),
       Metric(title: "Assigned to me", filter: "is:open assignee:@me"),
-      Metric(title: "Issues to triage", filter: "is:issue is:open no:label", scope: .organization("")),
+      Metric(title: "Issues to triage", sources: ["@me"], filter: "is:issue is:open no:label"),
     ]
   }
 
   public static var defaults: [Metric] { Array(presets.prefix(3)) }
 
   public var searchQuery: String {
-    switch scope {
-    case .everywhere: filter
-    case .organization(let name): "org:\(name) \(filter)"
-    case .repositories(let names): (names.map { "repo:\($0)" } + [filter]).joined(separator: " ")
-    }
+    (sources.map { $0.contains("/") ? "repo:\($0)" : "user:\($0)" } + [filter])
+      .filter { !$0.isEmpty }
+      .joined(separator: " ")
+  }
+
+  public var webURL: URL? {
+    var components = URLComponents(string: "https://github.com/search")
+    components?.queryItems = [URLQueryItem(name: "q", value: searchQuery), URLQueryItem(name: "type", value: "issues")]
+    let encodedQuery = components?.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+    components?.percentEncodedQuery = encodedQuery
+    return components?.url
   }
 
   public var glyph: StateGlyph {
@@ -46,21 +78,20 @@ public struct Metric: Codable, Hashable, Sendable, Identifiable {
   }
 
   public var isValid: Bool {
-    guard !title.trimmingCharacters(in: .whitespaces).isEmpty, !filter.trimmingCharacters(in: .whitespaces).isEmpty else { return false }
-    switch scope {
-    case .everywhere:
-      return filter.lowercased().split(whereSeparator: \.isWhitespace).contains { term in
-        guard !term.hasPrefix("-"), !term.contains("\""), let colon = term.firstIndex(of: ":") else { return false }
-        let value = term[term.index(after: colon)...]
-        return value == "@me" || (["user", "org", "repo", "owner"].contains(term[..<colon]) && !value.isEmpty)
-      }
-    case .organization(let name):
-      return !name.isEmpty && !name.contains("/") && !name.contains(where: \.isWhitespace)
-    case .repositories(let names):
-      return !names.isEmpty && names.allSatisfy { name in
-        let parts = name.split(separator: "/", omittingEmptySubsequences: false)
-        return parts.count == 2 && parts.allSatisfy { !$0.isEmpty && !$0.contains(where: \.isWhitespace) }
-      }
+    !title.trimmingCharacters(in: .whitespaces).isEmpty && isSearchValid
+  }
+
+  public var isSearchValid: Bool {
+    let sourcesAreValid = sources.allSatisfy { source in
+      let parts = source.split(separator: "/", omittingEmptySubsequences: false)
+      return parts.count <= 2 && parts.allSatisfy { !$0.isEmpty && !$0.contains(where: \.isWhitespace) }
+    }
+    guard sourcesAreValid else { return false }
+    guard sources.isEmpty else { return true }
+    return filter.lowercased().split(whereSeparator: \.isWhitespace).contains { term in
+      guard !term.hasPrefix("-"), !term.contains("\""), let colon = term.firstIndex(of: ":") else { return false }
+      let value = term[term.index(after: colon)...]
+      return value == "@me" || (["user", "org", "repo", "owner"].contains(term[..<colon]) && !value.isEmpty)
     }
   }
 }

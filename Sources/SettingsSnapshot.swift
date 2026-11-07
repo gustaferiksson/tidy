@@ -77,7 +77,10 @@ private final class SnapshotProtocol: URLProtocol, @unchecked Sendable {
             return (200, Data(#"{"login": "gustaferiksson", "avatar_url": "\#(avatar)"}"#.utf8))
         }
         if url.path() == "/search/issues" {
-            return (200, Data(#"{"total_count": 7, "incomplete_results": false, "items": []}"#.utf8))
+            let items = [("octo/app", 12, "pull", "Add dark mode"), ("acme/website", 2, "issues", "Footer links 404"), ("octo/app", 31, "issues", "Crash on launch")].map { repository, number, segment, title in
+                #"{"repository_url": "https://api.github.com/repos/\#(repository)", "number": \#(number), "title": "\#(title)", "html_url": "https://github.com/\#(repository)/\#(segment)/\#(number)", "state": "open", "user": {"login": "mona"}, "updated_at": "2026-11-01T10:00:00Z"}"#
+            }
+            return (200, Data(#"{"total_count": 7, "incomplete_results": false, "items": [\#(items.joined(separator: ", "))]}"#.utf8))
         }
         guard url.path() == "/notifications" else { return (404, Data()) }
         let threads = [("octo/app", "PullRequest"), ("octo/infra", "CheckSuite"), ("acme/website", "Issue")].enumerated().map { index, entry in

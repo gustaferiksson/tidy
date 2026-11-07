@@ -41,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         #endif
         updater.start()
         store.metricsEnabled = AppSettings.shared.showsMetrics
+        store.menuBarMetric = AppSettings.shared.menuBarCount.metricID
         store.start()
         let workspace = NSWorkspace.shared.notificationCenter
         sleepObservers = [

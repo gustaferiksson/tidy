@@ -1,9 +1,11 @@
 import ServiceManagement
 import SwiftUI
+import TidyCore
 
 struct GeneralSettings: View {
     @Bindable var settings: AppSettings
     @Environment(AppUpdater.self) private var updater
+    @Environment(InboxStore.self) private var store
     @State private var loginStatus = SMAppService.mainApp.status
     @State private var loginError: String?
 
@@ -52,8 +54,13 @@ struct GeneralSettings: View {
                 Picker("Menu bar shows", selection: $settings.menuBarCount) {
                     Text("Unread notifications").tag(MenuBarCount.unread)
                     Text("Everything not done").tag(MenuBarCount.notDone)
+                    if !store.metrics.isEmpty { Divider() }
+                    ForEach(store.metrics) { metric in
+                        Text(metric.title).tag(MenuBarCount.metric(metric.id))
+                    }
                 }
                 .disabled(!settings.showMenuBarIcon)
+                .onChange(of: settings.menuBarCount) { _, count in store.menuBarMetric = count.metricID }
             } header: {
                 Text("Menu Bar")
             } footer: {

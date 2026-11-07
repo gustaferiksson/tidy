@@ -5,65 +5,54 @@ struct MetricEditor: View {
     let onSave: (Metric) -> Void
     private let id: UUID
     @State private var title: String
+    @State private var sources: String
     @State private var filter: String
-    @State private var scope: ScopeKind
-    @State private var names: String
+    @State private var preview: Result<SearchResult, GitHubError>?
+    @Environment(InboxStore.self) private var store
     @Environment(\.dismiss) private var dismiss
 
     init(metric: Metric, onSave: @escaping (Metric) -> Void) {
         self.onSave = onSave
         id = metric.id
         _title = State(initialValue: metric.title)
+        _sources = State(initialValue: metric.sources.joined(separator: ", "))
         _filter = State(initialValue: metric.filter)
-        switch metric.scope {
-        case .everywhere:
-            _scope = State(initialValue: .everywhere)
-            _names = State(initialValue: "")
-        case .organization(let name):
-            _scope = State(initialValue: .organization)
-            _names = State(initialValue: name)
-        case .repositories(let repositories):
-            _scope = State(initialValue: .repositories)
-            _names = State(initialValue: repositories.joined(separator: ", "))
-        }
     }
 
     var body: some View {
-        let trimmedNames = names.trimmingCharacters(in: .whitespaces)
-        let metricScope: MetricScope = switch scope {
-        case .everywhere: .everywhere
-        case .organization: .organization(trimmedNames)
-        case .repositories: .repositories(names.split { $0 == "," || $0.isWhitespace }.map(String.init))
-        }
         let metric = Metric(
             id: id,
             title: title.trimmingCharacters(in: .whitespaces),
-            filter: filter.trimmingCharacters(in: .whitespaces),
-            scope: metricScope
+            sources: sources.split { $0 == "," || $0.isWhitespace }.map(String.init),
+            filter: filter.trimmingCharacters(in: .whitespaces)
         )
         VStack(spacing: 0) {
             Form {
                 Section {
                     TextField("Title", text: $title, prompt: Text("PRs to review"))
+                    TextField("Sources", text: $sources, prompt: Text("octo, octo/app"))
+                        .textInputSuggestions {
+                            ForEach(sourceSuggestions, id: \.name) { suggestion in
+                                Text(suggestion.name).textInputCompletion(suggestion.completion)
+                            }
+                        }
                     TextField(text: $filter, prompt: Text("is:pr is:open review-requested:@me")) {
-                        Text("Filter").font(.body)
+                        Text("Search").font(.body)
                     }
                     .font(.body.monospaced())
-                    Picker("Scope", selection: $scope) {
-                        Text("Everywhere").tag(ScopeKind.everywhere)
-                        Text("Organization").tag(ScopeKind.organization)
-                        Text("Repositories").tag(ScopeKind.repositories)
-                    }
-                    .pickerStyle(.segmented)
-                    if scope == .organization {
-                        TextField("Organization", text: $names, prompt: Text("octo"))
-                    } else if scope == .repositories {
-                        TextField("Repositories", text: $names, prompt: Text("octo/app, octo/lib"))
-                    }
                 } footer: {
-                    Text(scope == .everywhere
-                        ? "Uses GitHub search syntax. To search everywhere, include @me, user:, org:, repo: or owner: in the filter."
-                        : "Uses GitHub search syntax.")
+                    Group {
+                        if !metric.isSearchValid {
+                            Text("Add a source, or include @me, user:, org:, repo: or owner: in the search.")
+                        } else if case .success(let result) = preview {
+                            Text(result.totalCount == 1 ? "1 result" : "\(result.totalCount.formatted()) results")
+                        } else if case .failure(let error) = preview {
+                            Text(error == .invalidSearch ? "Invalid search" : error.message)
+                        } else {
+                            ProgressView().controlSize(.small)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
             .formStyle(.grouped)
@@ -80,10 +69,26 @@ struct MetricEditor: View {
             }
             .padding(20)
         }
-        .frame(width: 520, height: 320)
+        .frame(width: 520, height: 270)
+        .task(id: metric.isSearchValid ? metric.searchQuery : nil) {
+            preview = nil
+            guard metric.isSearchValid else { return }
+            try? await Task.sleep(for: .milliseconds(600))
+            guard !Task.isCancelled else { return }
+            let result = await store.search(metric.searchQuery)
+            guard !Task.isCancelled else { return }
+            preview = result
+        }
     }
-}
 
-private enum ScopeKind {
-    case everywhere, organization, repositories
+    private var sourceSuggestions: [(name: String, completion: String)] {
+        let typed = sources.split { $0 == "," || $0.isWhitespace }.map(String.init)
+        let isTyping = sources.last.map { $0 != "," && !$0.isWhitespace } ?? false
+        let partial = isTyping ? typed.last ?? "" : ""
+        let kept = sources.dropLast(partial.count)
+        let owners = Set(store.repositories.map { String($0.prefix { $0 != "/" }) }).sorted()
+        return (owners + store.repositories)
+            .filter { !typed.contains($0) && (partial.isEmpty || $0.localizedCaseInsensitiveContains(partial)) }
+            .map { ($0, kept + $0) }
+    }
 }

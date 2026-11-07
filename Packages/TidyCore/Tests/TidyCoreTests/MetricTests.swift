@@ -1,14 +1,21 @@
+import Foundation
 import Testing
 
 @testable import TidyCore
 
 struct MetricTests {
-  @Test func searchQueryPrefixesTheScope() {
+  @Test func searchQueryPrefixesTheSources() {
     #expect(Metric(title: "Mine", filter: "is:pr author:@me").searchQuery == "is:pr author:@me")
-    #expect(Metric(title: "Org", filter: "is:issue", scope: .organization("octo")).searchQuery == "org:octo is:issue")
+    #expect(Metric(title: "Org", sources: ["octo"], filter: "is:issue").searchQuery == "user:octo is:issue")
+    #expect(Metric(title: "Me", sources: ["@me"], filter: "").searchQuery == "user:@me")
     #expect(
-      Metric(title: "Repos", filter: "is:issue no:label", scope: .repositories(["octo/app", "octo/lib"])).searchQuery
+      Metric(title: "Repos", sources: ["octo/app", "octo/lib"], filter: "is:issue no:label").searchQuery
         == "repo:octo/app repo:octo/lib is:issue no:label")
+  }
+
+  @Test func webURLOpensTheSearchOnGitHub() {
+    let url = Metric(title: "C", sources: ["octo"], filter: "language:c++").webURL
+    #expect(url?.absoluteString == "https://github.com/search?q=user:octo%20language:c%2B%2B&type=issues")
   }
 
   @Test func glyphFollowsTheFilter() {
@@ -18,8 +25,7 @@ struct MetricTests {
   }
 
   @Test func searchesMustBeNarrowedAndNamed() {
-    #expect(Metric.defaults.allSatisfy { $0.isValid })
-    #expect(Metric.presets.last?.isValid == false)
+    #expect(Metric.presets.allSatisfy { $0.isValid })
     #expect(!Metric(title: " ", filter: "author:@me").isValid)
     #expect(!Metric(title: "Open", filter: "is:open").isValid)
     #expect(Metric(title: "Open", filter: "is:open owner:octo").isValid)
@@ -31,12 +37,27 @@ struct MetricTests {
     #expect(!Metric(title: "Open", filter: "is:open label:\"a repo:x\"").isValid)
     #expect(!Metric(title: "Open", filter: "is:open org:").isValid)
     #expect(!Metric(title: "Open", filter: "is:open label:@me-too").isValid)
-    #expect(Metric(title: "Open", filter: "is:open", scope: .organization("octo")).isValid)
-    #expect(!Metric(title: "Open", filter: "is:open", scope: .organization("")).isValid)
-    #expect(!Metric(title: "Open", filter: "is:open", scope: .organization("octo/app")).isValid)
-    #expect(Metric(title: "Open", filter: "is:open", scope: .repositories(["octo/app"])).isValid)
-    #expect(!Metric(title: "Open", filter: "is:open", scope: .repositories([])).isValid)
-    #expect(!Metric(title: "Open", filter: "is:open", scope: .repositories(["octo/app", "octo"])).isValid)
-    #expect(!Metric(title: "Open", filter: "is:open", scope: .repositories(["octo/"])).isValid)
+    #expect(Metric(title: "Open", sources: ["octo"], filter: "is:open").isValid)
+    #expect(Metric(title: "Open", sources: ["octo/app", "@me"], filter: "").isValid)
+    #expect(!Metric(title: "Open", sources: ["octo/app/x"], filter: "is:open").isValid)
+    #expect(!Metric(title: "Open", sources: ["octo/"], filter: "is:open").isValid)
+    #expect(!Metric(title: "Open", sources: ["oc to"], filter: "is:open").isValid)
+    #expect(!Metric(title: "Open", sources: ["octo/"], filter: "author:@me").isValid)
+    #expect(!Metric(title: "", sources: ["octo"], filter: "").isValid)
+    #expect(Metric(title: "", sources: ["octo"], filter: "").isSearchValid)
+  }
+
+  @Test func oldScopesBecomeSources() throws {
+    let id = UUID()
+    let decode = { (scope: String) in
+      try JSONDecoder().decode(Metric.self, from: Data(#"{"id": "\#(id)", "title": "T", "filter": "is:open", "scope": \#(scope)}"#.utf8))
+    }
+    #expect(try decode(#"{"everywhere": {}}"#).sources == [])
+    #expect(try decode(#"{"organization": {"_0": "octo"}}"#).sources == ["octo"])
+    let migrated = try decode(#"{"repositories": {"_0": ["octo/app", "octo/lib"]}}"#)
+    #expect(migrated == Metric(id: id, title: "T", sources: ["octo/app", "octo/lib"], filter: "is:open"))
+    let saved = try JSONSerialization.jsonObject(with: JSONEncoder().encode(migrated)) as? [String: Any]
+    #expect(saved?["scope"] == nil)
+    #expect(try JSONDecoder().decode(Metric.self, from: JSONEncoder().encode(migrated)) == migrated)
   }
 }

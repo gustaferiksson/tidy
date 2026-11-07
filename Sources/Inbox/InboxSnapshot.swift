@@ -365,10 +365,20 @@ private enum FixtureData {
             ]
         }
         routes["/notifications"] = try? JSONSerialization.data(withJSONObject: threads)
-        let reviews = entries.filter { $0.reason == "review_requested" && $0.number != nil }.map { entry in
-            ["repository_url": "\(api)/repos/\(entry.repository)", "number": entry.number ?? 0] as [String: Any]
+        let found: [(repository: String, number: Int, title: String, segment: String, author: String, draft: Bool, minutesAgo: Double)] = [
+            ("tinecli/tidy", 42, "Adopt Liquid Glass in the inbox panel", "pull", "mira", false, 4),
+            ("acme/web", 327, "Show the release notes after an update", "pull", "sam", true, 75),
+            ("acme/api", 219, "Rate limit headers are ignored on retries", "issues", "pat", false, 1_300),
+        ]
+        let results = found.map { result -> [String: Any] in
+            let item: [String: Any] = [
+                "repository_url": "\(api)/repos/\(result.repository)", "number": result.number, "title": result.title,
+                "html_url": "https://github.com/\(result.repository)/\(result.segment)/\(result.number)", "state": "open", "draft": result.draft,
+                "user": ["login": result.author], "updated_at": now.addingTimeInterval(-result.minutesAgo * 60).formatted(.iso8601),
+            ]
+            return result.segment == "pull" ? item.merging(["pull_request": ["merged_at": NSNull()]]) { $1 } : item
         }
-        routes["/search/issues"] = try? JSONSerialization.data(withJSONObject: ["total_count": reviews.count + 4, "incomplete_results": false, "items": reviews])
+        routes["/search/issues"] = try? JSONSerialization.data(withJSONObject: ["total_count": 12, "incomplete_results": false, "items": results])
         routes["/repos/acme/api/dependabot/alerts"] = try? JSONSerialization.data(withJSONObject: alerts)
         return routes
     }()
