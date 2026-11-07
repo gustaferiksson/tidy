@@ -11,6 +11,7 @@ struct MetricSettings: View {
         Form {
             Section("Panel") {
                 Toggle("Show metrics in the panel", isOn: $settings.showsMetrics)
+                    .onChange(of: settings.showsMetrics) { _, isOn in store.metricsEnabled = isOn }
                 LabeledContent("Style") {
                     HStack(spacing: 12) {
                         ForEach(MetricStyle.allCases, id: \.self) { style in

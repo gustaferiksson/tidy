@@ -634,7 +634,9 @@ struct InboxStoreTests {
 
     await store.refresh()
     store.metrics.swapAt(0, 1)
+    store.metrics[0].title = "Renamed"
     #expect(requests("GET").count { $0 == "/search/issues" } == 3)
+    #expect(store.metricResults.count == 3)
     store.metrics[2].filter = "is:open assignee:@me -label:wontfix"
     await waitUntil { requests("GET").count { $0 == "/search/issues" } == 4 }
     store.metrics.removeAll { $0.id == metric.id }
@@ -651,6 +653,28 @@ struct InboxStoreTests {
     #expect(store.issue == nil)
     store.scope.metric = store.metrics[0].id
     #expect(store.visibleItems.isEmpty)
+  }
+
+  @Test func rateLimitSkipsTheRestOfTheBatch() async {
+    server.on("GET", "/search/issues", respond: StubResponse(status: 403, headers: ["X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1790003600"]))
+    let store = makeStore()
+    await store.refresh()
+    await waitUntil { store.metricResults.count == 3 }
+    #expect(requests("GET").count { $0 == "/search/issues" } == 1)
+    #expect(store.metricResults.values.allSatisfy { $0 == .failure(.rateLimited(resetsAt: Date(timeIntervalSince1970: 1_790_003_600))) })
+    #expect(store.issue == nil)
+  }
+
+  @Test func disabledMetricsNeverSearch() async {
+    let store = makeStore()
+    store.metricsEnabled = false
+    await store.refresh()
+    #expect(!requests("GET").contains("/search/issues"))
+    store.metricsEnabled = true
+    await waitUntil { store.metricResults.count == 3 }
+    store.scope.metric = store.metrics[0].id
+    store.metricsEnabled = false
+    #expect(store.scope.metric == nil)
   }
 
   @Test func muteThreadUnsubscribesAndArchives() async throws {

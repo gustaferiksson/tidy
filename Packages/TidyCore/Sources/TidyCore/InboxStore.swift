@@ -31,8 +31,15 @@ public final class InboxStore {
   public var metrics: [Metric] = [] {
     didSet {
       save(metrics, as: "metrics.json")
-      metricResults = metricResults.filter { id, _ in oldValue.first { $0.id == id }.map(metrics.contains) ?? false }
+      metricFetches = metricFetches.filter { id, fetch in metrics.contains { $0.id == id && $0.searchQuery == fetch.query } }
+      metricResults = metricResults.filter { metricFetches[$0.key] != nil }
       if let metric = scope.metric, !metrics.contains(where: { $0.id == metric }) { scope.metric = nil }
+      refreshMetrics()
+    }
+  }
+  public var metricsEnabled = true {
+    didSet {
+      guard metricsEnabled else { return scope.metric = nil }
       refreshMetrics()
     }
   }
@@ -70,7 +77,7 @@ public final class InboxStore {
   @ObservationIgnored private var deferred: [String: PendingAction] = [:]
   @ObservationIgnored private var markedRead: [String: Date] = [:]
   @ObservationIgnored private var archived: [String: Date] = [:]
-  @ObservationIgnored private var metricsFetchedAt: [Metric: Date] = [:]
+  @ObservationIgnored private var metricFetches: [Metric.ID: (query: String, startedAt: Date)] = [:]
 
   public init(
     directory: URL = InboxStore.defaultDirectory,
@@ -346,21 +353,27 @@ public final class InboxStore {
   }
 
   private func refreshMetrics() {
-    guard let client else { return }
-    metricsFetchedAt = metricsFetchedAt.filter { metrics.contains($0.key) }
-    let due = metrics.filter { metricsFetchedAt[$0].map { now().timeIntervalSince($0) >= 60 } ?? true }
+    guard metricsEnabled, let client else { return }
+    let due = metrics.filter { metric in metricFetches[metric.id].map { now().timeIntervalSince($0.startedAt) >= 60 } ?? true }
     guard !due.isEmpty else { return }
-    for metric in due { metricsFetchedAt[metric] = now() }
+    for metric in due { metricFetches[metric.id] = (metric.searchQuery, now()) }
     Task {
+      var rateLimit: GitHubError?
       for metric in due {
         let result: Result<SearchResult, GitHubError>
-        do {
-          result = .success(try await client.search(metric.searchQuery))
-        } catch {
-          result = .failure(error as? GitHubError ?? .decoding)
+        if let rateLimit {
+          result = .failure(rateLimit)
+        } else {
+          do {
+            result = .success(try await client.search(metric.searchQuery))
+          } catch {
+            result = .failure(error as? GitHubError ?? .decoding)
+          }
         }
         guard client.token == self.client?.token else { return }
-        if metrics.contains(metric) { metricResults[metric.id] = result }
+        if case .failure(let error) = result, case .rateLimited = error { rateLimit = error }
+        guard metrics.contains(where: { $0.id == metric.id && $0.searchQuery == metric.searchQuery }) else { continue }
+        metricResults[metric.id] = result
       }
     }
   }
@@ -706,7 +719,7 @@ public final class InboxStore {
     muted = []
     failure = nil
     metricResults = [:]
-    metricsFetchedAt = [:]
+    metricFetches = [:]
     save(pending, as: "pending.json")
     save(muted, as: "muted.json")
   }
