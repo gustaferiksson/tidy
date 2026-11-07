@@ -57,13 +57,15 @@ public struct MutedThread: Codable, Hashable, Sendable, Identifiable {
 public struct InboxScope: Hashable, Sendable {
   public var participatingOnly: Bool
   public var repository: String?
+  public var metric: Metric.ID?
 
-  public init(participatingOnly: Bool = false, repository: String? = nil) {
+  public init(participatingOnly: Bool = false, repository: String? = nil, metric: Metric.ID? = nil) {
     self.participatingOnly = participatingOnly
     self.repository = repository
+    self.metric = metric
   }
 
-  public var isActive: Bool { participatingOnly || repository != nil }
+  public var isActive: Bool { participatingOnly || repository != nil || metric != nil }
 
   public func contains(_ item: InboxItem) -> Bool {
     (!participatingOnly || item.thread.reason.group == .participating)

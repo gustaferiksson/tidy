@@ -18,6 +18,31 @@ public struct NotificationsFetch: Sendable {
   public let scopes: [String]?
 }
 
+public struct SearchResult: Hashable, Sendable {
+  public let totalCount: Int
+  public let keys: Set<String>
+}
+
+private struct SearchResponse: Decodable {
+  struct Item: Decodable {
+    let repositoryURL: URL
+    let number: Int
+
+    enum CodingKeys: String, CodingKey {
+      case number
+      case repositoryURL = "repository_url"
+    }
+  }
+
+  let totalCount: Int
+  let items: [Item]
+
+  enum CodingKeys: String, CodingKey {
+    case items
+    case totalCount = "total_count"
+  }
+}
+
 private struct GraphQLEnvelope<T: Decodable>: Decodable {
   struct Problem: Decodable {
     let type: String?
@@ -108,6 +133,24 @@ public struct GitHubClient: Sendable {
       pollInterval: pollInterval,
       scopes: scopes
     )
+  }
+
+  public func search(_ query: String) async throws -> SearchResult {
+    var components = URLComponents(url: baseURL.appending(path: "search/issues"), resolvingAgainstBaseURL: false)
+    components?.queryItems = [URLQueryItem(name: "q", value: query), URLQueryItem(name: "per_page", value: "100")]
+    // URLComponents leaves "+" bare, which GitHub reads as a space.
+    let encodedQuery = components?.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
+    components?.percentEncodedQuery = encodedQuery
+    guard let url = components?.url else { throw GitHubError.invalidSearch }
+    let data: Data
+    do {
+      (data, _) = try await send(request(url))
+    } catch GitHubError.unexpectedStatus(422) {
+      throw GitHubError.invalidSearch
+    }
+    let response = try Self.decode(SearchResponse.self, from: data)
+    let keys = response.items.map { "\($0.repositoryURL.pathComponents.suffix(2).joined(separator: "/"))#\($0.number)" }
+    return SearchResult(totalCount: response.totalCount, keys: Set(keys))
   }
 
   public func get<T: Decodable>(_ type: T.Type, from url: URL) async throws -> T {

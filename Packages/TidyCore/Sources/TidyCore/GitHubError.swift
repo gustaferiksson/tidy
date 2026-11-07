@@ -12,6 +12,7 @@ public enum GitHubError: Error, Equatable, Sendable {
   case server(status: Int)
   case unexpectedStatus(Int)
   case decoding
+  case invalidSearch
 
   public var message: String {
     switch self {
@@ -24,6 +25,7 @@ public enum GitHubError: Error, Equatable, Sendable {
     case .forbidden: "GitHub refused the request"
     case .notFound: "Not found on GitHub"
     case .server, .unexpectedStatus, .decoding: "GitHub isn't responding"
+    case .invalidSearch: "GitHub can't run this search"
     }
   }
 

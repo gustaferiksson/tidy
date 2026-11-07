@@ -74,6 +74,7 @@ struct InboxStoreTests {
     server.on("GET", "/notifications") { [threads] _ in
       .encoded(threads.withLock { $0 }, headers: ["X-OAuth-Scopes": "repo, notifications", "Last-Modified": "Thu, 15 Oct 2026 10:00:00 GMT"])
     }
+    server.on("GET", "/search/issues", respond: .json("search"))
     for id in 101...108 {
       server.on("PATCH", "/notifications/threads/\(id)", respond: StubResponse(status: 205))
       server.on("DELETE", "/notifications/threads/\(id)", respond: StubResponse(status: 204))
@@ -605,6 +606,51 @@ struct InboxStoreTests {
     #expect(store.visibleItems.map(\.id) == ["101", "102", "108"])
     #expect(store.repositories == ["octo/app", "octo/lib"])
     #expect(makeStore().rules == store.rules)
+  }
+
+  @Test func metricsDefaultToTheAtMePresetsAndPersist() {
+    let store = makeStore()
+    #expect(store.metrics.map(\.filter) == Metric.defaults.map(\.filter))
+    store.metrics = [Metric(title: "Triage", filter: "is:issue", scope: .repositories(["octo/app"]))]
+    #expect(makeStore().metrics == store.metrics)
+    store.metrics = []
+    #expect(makeStore().metrics.isEmpty)
+  }
+
+  @Test func metricFilterShowsOnlySearchMatches() async throws {
+    let store = makeStore()
+    await store.refresh()
+    await waitUntil { store.metricResults.count == 3 }
+    #expect(requests("GET").count { $0 == "/search/issues" } == 3)
+    let metric = store.metrics[0]
+    #expect(try store.metricResults[metric.id]?.get().totalCount == 57)
+    store.scope.metric = metric.id
+    #expect(store.scope.isActive)
+    #expect(store.visibleItems.map(\.id) == ["101", "102"])
+    store.markAllRead()
+    await store.flushPending()
+    #expect(requests("PATCH") == ["/notifications/threads/101"])
+    #expect(requests("PUT").isEmpty)
+
+    await store.refresh()
+    store.metrics.swapAt(0, 1)
+    #expect(requests("GET").count { $0 == "/search/issues" } == 3)
+    store.metrics[2].filter = "is:open assignee:@me -label:wontfix"
+    await waitUntil { requests("GET").count { $0 == "/search/issues" } == 4 }
+    store.metrics.removeAll { $0.id == metric.id }
+    #expect(store.scope.metric == nil)
+  }
+
+  @Test func failedMetricStaysOnItsTile() async {
+    server.on("GET", "/search/issues", respond: StubResponse(status: 422))
+    let store = makeStore()
+    store.metrics = [Metric(title: "Bad", filter: "is:pr author:@me bogus:")]
+    await store.refresh()
+    await waitUntil { store.metricResults.count == 1 }
+    #expect(store.metricResults.values.first == .failure(.invalidSearch))
+    #expect(store.issue == nil)
+    store.scope.metric = store.metrics[0].id
+    #expect(store.visibleItems.isEmpty)
   }
 
   @Test func muteThreadUnsubscribesAndArchives() async throws {
