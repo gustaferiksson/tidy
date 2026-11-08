@@ -84,6 +84,7 @@ struct InboxList: View {
             List(selection: $panel.selection) {
                 ForEach(items) { item in
                     InboxRow(item: item, now: context.date)
+                        .background(ListRefusesFocus())
                         .listRowInsets(EdgeInsets())
                         .listRowSeparator(.hidden)
                 }
@@ -197,6 +198,19 @@ struct InboxList: View {
             Button("Mute Repository") {
                 for repository in Set(notifications.map(\.thread.repository.fullName)) { store.muteRepository(repository) }
             }
+        }
+    }
+}
+
+private struct ListRefusesFocus: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { TableFocusView() }
+    func updateNSView(_ nsView: NSView, context: Context) {}
+
+    private final class TableFocusView: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            // A first-responder table draws the accent selection; the list container keeps keyboard focus instead.
+            (enclosingScrollView?.documentView as? NSTableView)?.refusesFirstResponder = true
         }
     }
 }
