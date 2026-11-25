@@ -349,7 +349,7 @@ extension GitHubClient {
               comments: timelineItems(last: 10, itemTypes: [ISSUE_COMMENT, PULL_REQUEST_REVIEW]) { filteredCount nodes {
                 type: __typename
                 ... on IssueComment { id author { ...Who } body createdAt url }
-                ... on PullRequestReview { id author { ...Who } body createdAt url state }
+                ... on PullRequestReview { id author { ...Who } body createdAt: submittedAt url state }
               } }
               events: timelineItems(last: 30, itemTypes: [PULL_REQUEST_COMMIT, REVIEW_REQUESTED_EVENT, REVIEW_REQUEST_REMOVED_EVENT, MERGED_EVENT, CLOSED_EVENT, REOPENED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT, HEAD_REF_DELETED_EVENT, READY_FOR_REVIEW_EVENT, CONVERT_TO_DRAFT_EVENT, LABELED_EVENT, UNLABELED_EVENT, ASSIGNED_EVENT, UNASSIGNED_EVENT, RENAMED_TITLE_EVENT, CROSS_REFERENCED_EVENT]) { nodes {
                 \(sharedEvents)

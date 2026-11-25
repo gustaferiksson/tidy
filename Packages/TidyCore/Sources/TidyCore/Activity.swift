@@ -75,7 +75,7 @@ extension GitHubClient {
               timelineItems(last: \(timelineLimit), itemTypes: [PULL_REQUEST_COMMIT, ISSUE_COMMENT, PULL_REQUEST_REVIEW, REVIEW_REQUESTED_EVENT, MERGED_EVENT, CLOSED_EVENT, REOPENED_EVENT, HEAD_REF_FORCE_PUSHED_EVENT, READY_FOR_REVIEW_EVENT, ASSIGNED_EVENT]) { nodes {
                 type: __typename
                 ... on PullRequestCommit { commit { committedDate messageHeadline author { name user { login } } } }
-                ... on PullRequestReview { author { login } body createdAt url state }
+                ... on PullRequestReview { author { login } body createdAt: submittedAt url state }
                 ... on ReviewRequestedEvent { actor { login } createdAt requestedReviewer { ... on User { login } } }
                 ... on MergedEvent { actor { login } createdAt }
                 ... on HeadRefForcePushedEvent { actor { login } createdAt }
